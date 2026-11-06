@@ -13,3 +13,6 @@ export function fmtClock(t: number, step: number): string {
   const s = ((u - m * per) * q).toFixed(digits).padStart(digits ? digits + 3 : 2, '0');
   return `${t < 0 ? '-' : ''}${m}:${s}`;
 }
+
+/** 機器名の末尾にブラウザが付ける USB の識別番号 `(0499:172f)` を取り除く(同じ機種なら同じ番号で、見分けに使えないため) */
+export const cleanDeviceName = (name: string): string => name.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '');

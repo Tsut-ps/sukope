@@ -4,6 +4,7 @@ import { ensureLayout } from './history';
 import { buildLayout } from './layout';
 import { rt, setStatus, ui } from '../runtime.svelte';
 import { settings } from '../settings.svelte';
+import { cleanDeviceName } from './format';
 
 /** 音程検出用の時間波形のサイズ(サンプル数) */
 const PITCH_FFT = 4096;
@@ -162,7 +163,7 @@ export async function listDevices(): Promise<void> {
   const devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
   rt.devices = devs
     .filter((d) => d.deviceId !== 'default')
-    .map((d, i) => ({ id: d.deviceId, label: d.label || `入力 ${i + 1}` }));
+    .map((d, i) => ({ id: d.deviceId, label: cleanDeviceName(d.label) || `入力 ${i + 1}` }));
   // 権限が出る前は ID が空のことがある。ID が分かっていて、保存した入力が無くなっているときだけ既定に戻す
   if (settings.deviceId && rt.devices.some((d) => d.id) && !rt.devices.some((d) => d.id === settings.deviceId)) {
     settings.deviceId = '';
@@ -189,7 +190,7 @@ async function openInput(): Promise<MediaStream> {
 
 async function startDevice(ctx: AudioContext): Promise<void> {
   state.stream = await openInput();
-  const label = state.stream.getAudioTracks()[0]?.label || 'デバイス';
+  const label = cleanDeviceName(state.stream.getAudioTracks()[0]?.label ?? '') || 'デバイス';
   connectGraph(ctx.createMediaStreamSource(state.stream), false, true, `入力: ${label}`);
   void listDevices();
 }
