@@ -32,17 +32,30 @@ button.live{white-space:nowrap;position:absolute;left:50%;bottom:34px;transform:
 #hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);padding:24px;pointer-events:none;line-height:1.9}
 #hint b{color:var(--text)}
 .hintBody{max-width:min(640px,100%);background:rgba(14,17,22,.82);border:1px solid var(--line);border-radius:10px;padding:16px 20px}
-footer{background:var(--panel);border-top:1px solid var(--line);padding:6px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;min-height:36px}
-#status{color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* フッター: 値が変わっても高さが変わらない固定配置。 レベルバー | ピーク・カーソル(縦2行) | 状態・ズーム・表示幅 */
+footer{background:var(--panel);border-top:1px solid var(--line);padding:6px 12px;display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:center;gap:6px 14px}
+.read{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.info{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;min-width:0}
+.info .tail{display:flex;align-items:center;gap:8px;white-space:nowrap;min-height:24px}
+#status{color:var(--muted);min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.5em}
 .nowrap{white-space:nowrap}
 .muted{color:var(--muted)}
 #status.err{color:var(--err)}
-#peak,#hover{font-variant-numeric:tabular-nums;white-space:nowrap}
+#peak,#hover{font-variant-numeric:tabular-nums;white-space:nowrap;min-height:1.5em}
+/* 値が変わっても幅を変えない(折り返しが変わってフッターの高さが揺れるのを防ぐ)。最も長い表示(20.00 kHz レ♯10 +8¢ など)が収まる幅 */
+#peak{min-width:min(17.5em,100%)}
+#hover{min-width:min(23.5em,100%)}
+@media (max-width:1000px){
+  footer{grid-template-columns:auto minmax(0,1fr)}
+  .info{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;min-height:24px}
+  #status{flex:1}
+}
 #peak b,#hover b{color:var(--accent);font-weight:600}
 #lvl{display:block;width:320px;max-width:100%;height:52px;cursor:ew-resize;touch-action:none;border-radius:6px}
 #lvl:focus-visible{outline:1px solid var(--accent)}
+#playerBox{grid-column:1/-1}
+#playerBox:empty{display:none}
 #playerBox audio{height:30px;max-width:340px}
-.spacer{flex:1}
 .grow{flex:1}
 @media (pointer:coarse){
 .only-kbd{display:none}}
@@ -113,10 +126,8 @@ footer{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,e
   .pop,.pop.settings{left:8px;right:8px;width:auto}
   .pop.menu{left:auto;width:min(280px,calc(100vw - 16px))}
   main{grid-template-columns:52px 1fr;padding:6px max(6px,env(safe-area-inset-right)) 2px env(safe-area-inset-left)}
-  footer{gap:4px 12px}
-  #lvl{flex:1 1 100%;width:100%}
-  .spacer{display:none}
-  #playerBox{flex:1 1 100%}
+  footer{gap:4px 12px;grid-template-columns:minmax(0,1fr)}
+  #lvl{width:100%}
   #playerBox audio{width:100%;max-width:none}
   #hint{font-size:12px;padding:12px;line-height:1.7}
   #hint br{display:none}
@@ -132,7 +143,8 @@ footer{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,e
   .acts,.tgls{order:0}
   .tgls{margin-left:auto}
   footer{min-height:0;padding-top:2px;padding-bottom:max(2px,env(safe-area-inset-bottom));gap:2px 12px}
-  #lvl{flex:0 1 300px;width:300px}
+  footer{grid-template-columns:auto minmax(0,1fr)}
+  #lvl{width:300px}
   #hint{font-size:11px;line-height:1.5;padding:6px}
 }
 

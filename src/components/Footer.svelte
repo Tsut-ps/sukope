@@ -22,27 +22,32 @@
 
 <footer>
   <LevelBar />
-  <span id="peak">
-    ピーク:
-    {#if rt.peak}
-      {#if noteMode}<b>{peakNote}</b> {fmtHz(rt.peak.f)}{:else}<b>{fmtHz(rt.peak.f)}</b> {peakNote}{/if}
-      / {rt.peak.db.toFixed(0)} dB
-    {:else}—{/if}
-  </span>
-  <span id="hover">
-    {#if rt.hover}
-      カーソル:
-      {#if noteMode}<b>{hoverNote}</b> {fmtHz(rt.hover.f)}{:else}<b>{fmtHz(rt.hover.f)}</b> {hoverNote}{/if}
-      / {rt.hover.db == null ? '—' : rt.hover.db.toFixed(0) + ' dB'} / {rt.hover.ago.toFixed(1)} 秒前
-    {/if}
-  </span>
-  <span class="spacer"></span>
+  <div class="read">
+    <span id="peak">
+      ピーク:
+      {#if rt.peak}
+        {#if noteMode}<b>{peakNote}</b> {fmtHz(rt.peak.f)}{:else}<b>{fmtHz(rt.peak.f)}</b> {peakNote}{/if}
+        / {rt.peak.db.toFixed(0)} dB
+      {:else}—{/if}
+    </span>
+    <span id="hover">
+      {#if rt.hover}
+        カーソル:
+        {#if noteMode}<b>{hoverNote}</b> {fmtHz(rt.hover.f)}{:else}<b>{fmtHz(rt.hover.f)}</b> {hoverNote}{/if}
+        / {rt.hover.db == null ? '—' : rt.hover.db.toFixed(0) + ' dB'} / {rt.hover.ago.toFixed(1)} 秒前
+      {/if}
+    </span>
+  </div>
+  <div class="info">
+    <span id="status" class:err={rt.statusErr}>{rt.status}</span>
+    <span class="tail">
+      {#if zoomed}
+        <button class="small" title="ズームを戻す(0 / ダブルクリック / ダブルタップ)" onclick={resetZoom}>
+          ズーム 時間×{settings.zoom.toFixed(1)} 周波数×{rt.zoomF.toFixed(1)} ✕
+        </button>
+      {/if}
+      {#if seconds}<span class="muted">表示幅 約 {seconds} 秒</span>{/if}
+    </span>
+  </div>
   <span id="playerBox" bind:this={playerBox}></span>
-  <span id="status" class:err={rt.statusErr}>{rt.status}</span>
-  {#if zoomed}
-    <button class="small" title="ズームを戻す(0 / ダブルクリック / ダブルタップ)" onclick={resetZoom}>
-      ズーム 時間×{settings.zoom.toFixed(1)} 周波数×{rt.zoomF.toFixed(1)} ✕
-    </button>
-  {/if}
-  {#if seconds}<span class="muted nowrap">表示幅 約 {seconds} 秒</span>{/if}
 </footer>
