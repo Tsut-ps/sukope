@@ -3,10 +3,13 @@ import { rt } from './runtime.svelte';
 import { AXIS_MODES, COLORMAPS, FFT_SIZES, SPEEDS, settings } from './settings.svelte';
 import { start, startFile, stop } from './engine/audio';
 import { savePng } from './engine/png';
+import { panWindow, resetZoom, setPaused } from './engine/viewport';
 
 export function togglePause(): void {
-  rt.paused = !rt.paused;
+  setPaused(!rt.paused);
 }
+
+export const goLive = (): void => setPaused(false);
 
 export function toggleStart(): void {
   if (rt.running) stop();
@@ -59,7 +62,7 @@ export function stepSpeed(dir: 1 | -1): void {
   settings.speed = step(list, settings.speed, dir);
 }
 
-export { savePng };
+export { savePng, resetZoom, panWindow };
 
 export function openFile(f: File): void {
   settings.source = 'file';

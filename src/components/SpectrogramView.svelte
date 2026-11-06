@@ -2,8 +2,9 @@
   import { onMount, untrack } from 'svelte';
   import { rt } from '../runtime.svelte';
   import { settings } from '../settings.svelte';
-  import { applyFft, applySmooth, initEngine, rebuildColors, updateView } from '../engine/render';
-  import { fullscreenSupported, toggleFullscreen, toggleImmersive, togglePause } from '../actions';
+  import { applyFft, applySmooth, initEngine, rebuildColors, resetFreqWindow } from '../engine/render';
+  import { clampZoomT, requestFull, requestOverlay } from '../engine/viewport';
+  import { fullscreenSupported, goLive, toggleFullscreen, toggleImmersive, togglePause } from '../actions';
 
   let host: HTMLDivElement;
   let axisCol: HTMLDivElement;
@@ -16,7 +17,16 @@
   // 設定が変わったら、必要な部分だけエンジンに反映する
   $effect(() => {
     void [settings.scale, settings.fmin, settings.fmax, settings.axisMode, rt.sampleRate];
-    untrack(updateView);
+    untrack(resetFreqWindow);
+  });
+  // 速度が変わると時間軸の縮尺が変わる
+  $effect(() => {
+    void settings.speed;
+    untrack(() => {
+      clampZoomT();
+      requestFull();
+      requestOverlay();
+    });
   });
   $effect(() => {
     void settings.fft;
@@ -52,6 +62,9 @@
       <div class="notice" role="status">
         このデバイスには音が流れていないようです。<span class="sub">入力デバイスの選択・音量・共有時の「音声も共有」を確認してください。</span>
       </div>
+    {/if}
+    {#if rt.paused && rt.behind > 0.3}
+      <button class="live" onclick={goLive}>▶ ライブに戻る({rt.behind.toFixed(1)} 秒前を表示中)</button>
     {/if}
     {#if rt.immersive}
       <div class="floating">

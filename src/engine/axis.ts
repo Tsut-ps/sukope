@@ -14,6 +14,8 @@ export function bindAxis(canvas: HTMLCanvasElement): void {
   actx = ctx2d(canvas);
 }
 
+export const getAxisCanvas = (): HTMLCanvasElement => axisCanvas;
+
 export function resizeAxis(cssWidth: number, h: number, dpr: number): void {
   axisCanvas.width = Math.round(cssWidth * dpr);
   axisCanvas.height = h;

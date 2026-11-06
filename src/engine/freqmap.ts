@@ -68,8 +68,26 @@ export function buildRows(v: View, height: number, bins: number, nyquist: number
   return { lo, hi, fr };
 }
 
-const LOG_TICKS = [20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000, 1500, 2000, 3000, 5000, 7000, 10000, 15000, 20000];
-const LIN_STEPS = [10, 20, 50, 100, 200, 500, 1000, 2000, 2500, 5000, 10000];
+const LIN_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 2500, 5000, 10000];
+
+/** 範囲を細かく見ているときも目盛りが出るよう、範囲の広さに合わせて候補を作る */
+function logCandidates(v: View): number[] {
+  const r = v.fmax / v.fmin;
+  const out: number[] = [];
+  if (r < 3) {
+    const step = LIN_STEPS.find((s) => (v.fmax - v.fmin) / s <= 8) ?? 10000;
+    for (let f = Math.ceil(v.fmin / step) * step; f <= v.fmax; f += step) out.push(f);
+    return out;
+  }
+  const mult = r >= 8 ? [1, 1.5, 2, 3, 5, 7] : [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8, 9];
+  for (let e = Math.floor(Math.log10(v.fmin)) - 1; e <= Math.ceil(Math.log10(v.fmax)); e++) {
+    for (const m of mult) {
+      const f = Math.round(m * 10 ** e * 1000) / 1000;
+      if (f >= v.fmin && f <= v.fmax) out.push(f);
+    }
+  }
+  return out;
+}
 
 /** 軸に描く目盛り(Hz)。対数軸は重ならない間隔だけ採用する */
 export function tickList(v: View, cssHeight: number): number[] {
@@ -77,8 +95,7 @@ export function tickList(v: View, cssHeight: number): number[] {
   if (v.log) {
     const perLn = cssHeight / Math.log(v.fmax / v.fmin);
     let prev = -Infinity;
-    for (const f of LOG_TICKS) {
-      if (f < v.fmin || f > v.fmax) continue;
+    for (const f of logCandidates(v)) {
       const pos = Math.log(f) * perLn;
       if (pos - prev >= 34) {
         out.push(f);

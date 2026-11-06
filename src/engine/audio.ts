@@ -1,5 +1,6 @@
 /** 音声入力(入力デバイス / 画面共有 / ファイル)の取得と解析ノードの接続。 */
 import { state } from './state';
+import { ensureBins } from './history';
 import { rt, setStatus, ui } from '../runtime.svelte';
 import { settings } from '../settings.svelte';
 
@@ -25,6 +26,7 @@ function connectGraph(node: AudioNode, monitor: boolean, live: boolean, label: s
   state.node = node;
   state.analyser = an;
   state.data = new Float32Array(an.frequencyBinCount);
+  ensureBins(an.frequencyBinCount);
   state.live = live;
   state.silentSince = performance.now();
   state.acc = 0;

@@ -5,6 +5,16 @@ export interface PeakInfo {
   db: number;
 }
 
+export interface HoverInfo {
+  f: number;
+  /** データが無い位置は null */
+  db: number | null;
+  /** 履歴の時計での時刻(秒) */
+  t: number;
+  /** 何秒前か */
+  ago: number;
+}
+
 export interface DeviceOption {
   id: string;
   label: string;
@@ -17,8 +27,13 @@ export const rt = $state({
   statusErr: false,
   /** 取り込み中の音のピーク */
   peak: null as PeakInfo | null,
-  /** カーソル位置の周波数(Hz) */
-  hover: null as number | null,
+  /** カーソル(タップ)位置の読み取り値 */
+  hover: null as HoverInfo | null,
+  /** ズーム倍率(時間 / 周波数) */
+  zoomT: 1,
+  zoomF: 1,
+  /** ライブより何秒前を見ているか(一時停止中のみ) */
+  behind: 0,
   /** 現在のピークレベル(dB)。無音のときは null */
   level: null as number | null,
   /** 入力があるのに、しばらく音が来ていない */

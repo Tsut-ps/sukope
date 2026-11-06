@@ -2,6 +2,8 @@
 import { rt } from './runtime.svelte';
 import {
   cycleAxisMode,
+  panWindow,
+  resetZoom,
   cycleColormap,
   savePng,
   stepFft,
@@ -34,6 +36,9 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: 'H', match: 'h', group: '表示', label: 'ヘッダー・フッターを隠す / 戻す', run: toggleImmersive },
   { keys: 'N', match: 'n', group: '表示', label: '左軸の切り替え(Hz / C D E / ド レ ミ)', run: cycleAxisMode },
   { keys: 'C', match: 'c', group: '表示', label: '配色を切り替え', run: cycleColormap },
+  { keys: '←', match: 'arrowleft', group: '表示', label: '過去へ移動(表示を止める)', run: () => panWindow(-0.25) },
+  { keys: '→', match: 'arrowright', group: '表示', label: '新しいほうへ移動', run: () => panWindow(0.25) },
+  { keys: '0', match: '0', group: '表示', label: 'ズームを戻す', run: resetZoom },
   { keys: 'L', match: 'l', group: '表示', label: '周波数軸 対数 / 線形(Hz表示のとき)', run: toggleScale },
   ...PRESETS.map<Shortcut>((p, i) => ({
     keys: String(i + 1),
@@ -49,6 +54,8 @@ export const SHORTCUTS: Shortcut[] = [
 ];
 
 export function onKeydown(e: KeyboardEvent): void {
+  // レベルバーなどが先に処理したキーは、ここでは扱わない
+  if (e.defaultPrevented) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const tag = (e.target as HTMLElement | null)?.tagName ?? '';
   if (/^(INPUT|SELECT|TEXTAREA)$/.test(tag)) return;
@@ -60,6 +67,8 @@ export function onKeydown(e: KeyboardEvent): void {
   // ボタンや音声コントロールでは、Space は本来の操作に任せる
   if (isSpace && /^(BUTTON|AUDIO|CANVAS)$/.test(tag)) return;
   const key = isSpace ? 'Space' : e.key.toLowerCase();
+  // 音声コントロールの矢印キーはシークに使う
+  if (tag === 'AUDIO' && key.startsWith('arrow')) return;
   const s = SHORTCUTS.find((x) => x.match === key);
   if (!s) return;
   if (rt.helpOpen && s.match !== '?') return;

@@ -6,28 +6,25 @@ import { buildRows, resolveView } from './freqmap';
 import { buildLevelLut, getCmap } from './colormap';
 import { bindAxis, drawAxis, resizeAxis } from './axis';
 import { bindOverlay, drawOverlay, resizeOverlay } from './overlay';
-import {
-  bindSpectrogram,
-  clearHistory,
-  pushColumns,
-  redrawAll,
-  resizeHistory,
-  setLevelLut,
-  setRows,
-} from './spectrogram';
+import { bindSpectrogram, redrawAll, resizeSpectrogram, scrollBy, setLevelLut, setRows } from './spectrogram';
+import { bindGestures } from './gesture';
+import { ensureBins, hist, pushFrame } from './history';
+import { ppsDev, requestFull, requestOverlay } from './viewport';
 import { clamp } from './util';
 
 const AXIS_FALLBACK_W = 64;
 /** これより小さい音しか来ない状態が続いたら「音が流れていない」と案内する */
 const SILENT_DB = -110;
 const SILENT_MS = 4000;
+/** 履歴に溜める列の間隔(秒)。60 フレーム/秒より速い画面では間引く */
+const CAPTURE_SEC = 1 / 60 - 0.001;
 
 const levelLut = new Uint8ClampedArray(256 * 3);
 
 let host: HTMLElement | null = null;
 let axisCol: HTMLElement | null = null;
 let rafId = 0;
-let prevView: { log: boolean; fmin: number; fmax: number } | null = null;
+let behindT = 0;
 
 export interface EngineElements {
   host: HTMLElement;
@@ -43,7 +40,8 @@ export function initEngine(els: EngineElements): () => void {
   axisCol = els.axisCol;
   bindSpectrogram(els.spec);
   bindAxis(els.axis);
-  const offOverlay = bindOverlay(els.over);
+  bindOverlay(els.over);
+  const offGesture = bindGestures(els.over);
   const ro = new ResizeObserver(resize);
   ro.observe(host);
   rebuildColors();
@@ -52,40 +50,49 @@ export function initEngine(els: EngineElements): () => void {
   return () => {
     cancelAnimationFrame(rafId);
     ro.disconnect();
-    offOverlay();
+    offGesture();
     host = axisCol = null;
-    prevView = null;
   };
 }
 
 /** 1 ピクセル行ごとの FFT ビン対応を作り直す(表示範囲・FFT サイズが変わったとき) */
 function rebuildRows(): void {
   if (!state.height) return;
-  const bins = state.analyser ? state.analyser.frequencyBinCount : settings.fft / 2;
+  const bins = hist.bins || settings.fft / 2;
   setRows(buildRows(view, state.height, bins, rt.sampleRate / 2));
 }
 
-/** 設定から表示範囲を決め直して、軸・グリッド・対応表を更新する */
+const spanOf = (v: { log: boolean; fmin: number; fmax: number }): number =>
+  v.log ? Math.log(v.fmax / v.fmin) : v.fmax - v.fmin;
+
+/** 設定とズームから表示範囲を決め直して、軸・グリッド・対応表を更新する */
 export function updateView(): void {
   if (!host) return;
-  Object.assign(
-    view,
-    resolveView({
-      log: settings.scale === 'log',
-      noteMode: isNoteMode(),
-      fminSel: settings.fmin,
-      fmaxSel: settings.fmax,
-      nyquist: rt.sampleRate / 2,
-    }),
-  );
-  // 軸の対応が変わると過去の描画と合わなくなるので、履歴を消す
-  const changed = !!prevView && (prevView.log !== view.log || prevView.fmin !== view.fmin || prevView.fmax !== view.fmax);
-  prevView = { ...view };
-  if (changed) clearHistory();
+  const base = resolveView({
+    log: settings.scale === 'log',
+    noteMode: isNoteMode(),
+    fminSel: settings.fmin,
+    fmaxSel: settings.fmax,
+    nyquist: rt.sampleRate / 2,
+  });
+  state.base = base;
+  const w = state.fwin;
+  const next = w
+    ? { log: base.log, fmin: clamp(w.lo, base.fmin, base.fmax), fmax: clamp(w.hi, base.fmin, base.fmax) }
+    : base;
+  if (w && next.fmax <= next.fmin * 1.0001) state.fwin = null;
+  Object.assign(view, state.fwin ? next : base);
+  rt.zoomF = spanOf(base) / spanOf(view);
   rebuildRows();
   drawAxis();
-  drawOverlay();
-  if (changed) redrawAll();
+  requestOverlay();
+  requestFull();
+}
+
+/** 設定の範囲が変わったとき: ズームをやめて、設定どおりの範囲にする */
+export function resetFreqWindow(): void {
+  state.fwin = null;
+  updateView();
 }
 
 /** FFT サイズが変わったとき */
@@ -94,8 +101,10 @@ export function applyFft(): void {
   if (an) {
     an.fftSize = settings.fft;
     state.data = new Float32Array(an.frequencyBinCount);
+    ensureBins(an.frequencyBinCount);
   }
   rebuildRows();
+  requestFull();
 }
 
 export function applySmooth(): void {
@@ -117,7 +126,7 @@ function resize(): void {
   const w = Math.max(1, Math.round((r.width - 2) * d));
   const h = Math.max(1, Math.round((r.height - 2) * d));
   if (w === state.width && h === state.height && d === state.dpr) return;
-  resizeHistory(w, h, d);
+  resizeSpectrogram(w, h, d);
   resizeOverlay(w, h);
   resizeAxis(axisCol.clientWidth || AXIS_FALLBACK_W, h, d);
   rt.widthCss = w / d;
@@ -174,18 +183,62 @@ function frame(ts: number): void {
   rafId = requestAnimationFrame(frame);
   const dt = Math.min(0.1, (ts - state.last) / 1000);
   state.last = ts;
-  const an = state.analyser;
-  if (!an) return;
-  an.getFloatFrequencyData(state.data);
-  if (ts - state.peakT > 100) {
-    state.peakT = ts;
-    updatePeak();
-    checkSilence(ts);
+
+  // 操作や設定変更による描き直しを、フレームごとに1回にまとめる
+  if (state.dirtyView) {
+    state.dirtyView = false;
+    updateView();
   }
-  if (rt.paused) return;
-  state.acc += dt * settings.speed * state.dpr;
-  const n = Math.min(Math.floor(state.acc), state.width);
-  if (n < 1) return;
-  state.acc -= Math.floor(state.acc);
-  pushColumns(state.data, n);
+  if (state.dirtyFull) {
+    state.dirtyFull = false;
+    redrawAll();
+    state.dirtyOverlay = true;
+  }
+
+  const an = state.analyser;
+  if (an) {
+    an.getFloatFrequencyData(state.data);
+    state.vt += dt;
+    if (state.vt - state.lastCapT >= CAPTURE_SEC) {
+      state.lastCapT = state.vt;
+      pushFrame(state.data, state.vt);
+    }
+    if (ts - state.peakT > 100) {
+      state.peakT = ts;
+      updatePeak();
+      checkSilence(ts);
+    }
+    if (!rt.paused) {
+      // ライブ: 経過時間ぶんだけ流す
+      const pps = ppsDev();
+      state.acc += dt * pps;
+      const n = Math.min(Math.floor(state.acc), state.width);
+      if (n >= 1) {
+        state.acc -= Math.floor(state.acc);
+        state.tEdge += n / pps;
+        scrollBy(n);
+        state.dirtyOverlay = true;
+      }
+    }
+  }
+
+  // 一時停止中: ライブから何秒前を見ているか
+  if (rt.paused) {
+    if (ts - behindT > 200) {
+      behindT = ts;
+      const b = Math.round(Math.max(0, state.vt - state.tEdge) * 10) / 10;
+      if (b !== rt.behind) rt.behind = b;
+    }
+  } else if (rt.behind) rt.behind = 0;
+
+  // タップで固定した読み取りは、しばらくしたら消す
+  if (state.hoverUntil && ts > state.hoverUntil) {
+    state.hoverUntil = 0;
+    state.hoverX = state.hoverY = null;
+    state.dirtyOverlay = true;
+  }
+  if (state.dirtyOverlay) {
+    state.dirtyOverlay = false;
+    drawOverlay();
+  }
 }
