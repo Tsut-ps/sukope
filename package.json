@@ -1,0 +1,21 @@
+{
+  "name": "sukope",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ブラウザで動くリアルタイム スペクトログラム",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "deploy": "npm run build && npx wrangler deploy"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6"
+  }
+}
