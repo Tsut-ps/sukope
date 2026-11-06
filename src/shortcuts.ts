@@ -7,7 +7,7 @@ import {
   cycleColormap,
   savePng,
   stepFft,
-  stepSpeed,
+  stepZoomTime,
   toggleAnalysis,
   toggleChannels,
   toggleFullscreen,
@@ -59,8 +59,8 @@ export const SHORTCUTS: Shortcut[] = [
   })),
   { keys: '[', match: '[', group: '設定', label: 'FFT を小さく', run: () => stepFft(-1) },
   { keys: ']', match: ']', group: '設定', label: 'FFT を大きく', run: () => stepFft(1) },
-  { keys: ',', match: ',', group: '設定', label: '速度を遅く', run: () => stepSpeed(-1) },
-  { keys: '.', match: '.', group: '設定', label: '速度を速く', run: () => stepSpeed(1) },
+  { keys: ',', match: ',', group: '表示', label: '時間軸を縮小', run: () => stepZoomTime(-1) },
+  { keys: '.', match: '.', group: '表示', label: '時間軸を拡大', run: () => stepZoomTime(1) },
 ];
 
 export function onKeydown(e: KeyboardEvent): void {

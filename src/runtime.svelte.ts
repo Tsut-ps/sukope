@@ -38,7 +38,6 @@ export const rt = $state({
   /** カーソル(タップ)位置の読み取り値 */
   hover: null as HoverInfo | null,
   /** ズーム倍率(時間 / 周波数) */
-  zoomT: 1,
   zoomF: 1,
   /** ライブより何秒前を見ているか(一時停止中のみ) */
   behind: 0,

@@ -1,10 +1,10 @@
 /** 画面の操作。ボタン・ショートカット・ドロップが同じ処理を呼ぶ。 */
 import { rt } from './runtime.svelte';
-import { AXIS_MODES, COLORMAPS, FFT_SIZES, SPEEDS, settings } from './settings.svelte';
+import { AXIS_MODES, COLORMAPS, FFT_SIZES, settings } from './settings.svelte';
 import { ensureCtx, start, startFile, stop } from './engine/audio';
 import { imageToWav } from './engine/imagesynth';
 import { state, view } from './engine/state';
-import { ppsCss } from './engine/viewport';
+import { ppsCss, zoomTime } from './engine/viewport';
 import { setStatus } from './runtime.svelte';
 import { closePopovers } from './popover';
 import { savePng } from './engine/png';
@@ -62,9 +62,9 @@ export function stepFft(dir: 1 | -1): void {
   settings.fft = step(FFT_SIZES, settings.fft, dir);
 }
 
-export function stepSpeed(dir: 1 | -1): void {
-  const list = SPEEDS.map((s) => s.value);
-  settings.speed = step(list, settings.speed, dir);
+/** 時間軸の拡大(+1)・縮小(-1)。ホイールと同じく、ライブ中は右端が基準 */
+export function stepZoomTime(dir: 1 | -1): void {
+  zoomTime(dir > 0 ? 1.25 : 0.8, null);
 }
 
 export const toggleLabels = (): void => {

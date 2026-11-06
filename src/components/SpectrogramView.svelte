@@ -5,7 +5,7 @@
   import { state } from '../engine/state';
   import Tuner from './Tuner.svelte';
   import { applyAnalysis, applyReferencePitch, applySmooth, initEngine, rebuildColors, resetFreqWindow } from '../engine/render';
-  import { clampZoomT, requestFull, requestOverlay } from '../engine/viewport';
+  import { requestFull, requestOverlay } from '../engine/viewport';
   import { fullscreenSupported, goLive, toggleFullscreen, toggleImmersive, togglePause } from '../actions';
 
   let host: HTMLDivElement;
@@ -21,11 +21,10 @@
     void [settings.scale, settings.fmin, settings.fmax, settings.axisMode, rt.sampleRate];
     untrack(resetFreqWindow);
   });
-  // 速度が変わると時間軸の縮尺が変わる
+  // 時間軸の拡大率が変わったら(プリセットや読み込みによる変更も含め)描き直す
   $effect(() => {
-    void settings.speed;
+    void settings.zoom;
     untrack(() => {
-      clampZoomT();
       requestFull();
       requestOverlay();
     });

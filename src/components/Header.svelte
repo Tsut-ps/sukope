@@ -9,7 +9,6 @@
     FFT_SIZES,
     FMAX_LIST,
     FMIN_LIST,
-    SPEEDS,
     resetSettings,
     settings,
   } from '../settings.svelte';
@@ -166,12 +165,6 @@
     </section>
     <section>
       <h3>見た目・音</h3>
-      <div class="field">
-        <label for="speed">速度</label>
-        <select id="speed" bind:value={settings.speed}>
-          {#each SPEEDS as s (s.value)}<option value={s.value}>{s.label}</option>{/each}
-        </select>
-      </div>
       <div class="field">
         <label for="map">配色</label>
         <select id="map" bind:value={settings.colormap}>

@@ -1,16 +1,12 @@
 /** 表示窓(時間と周波数)の計算と操作。ズーム・移動・ライブへの復帰。DOM には触れない。 */
 import { rt } from '../runtime.svelte';
-import { settings } from '../settings.svelte';
+import { BASE_PPS, ZOOM_MAX, ZOOM_MIN, settings } from '../settings.svelte';
 import { hist, oldestTime } from './history';
 import { panelAt, state } from './state';
 import type { View } from './freqmap';
 import { clamp } from './util';
 
-/** 時間軸の速さ(CSS px/秒)の下限・上限 */
-const MIN_PPS = 10;
-const MAX_PPS = 1200;
-
-export const ppsCss = (): number => settings.speed * rt.zoomT;
+export const ppsCss = (): number => BASE_PPS * settings.zoom;
 /** 1 秒あたりのデバイスピクセル数 */
 export const ppsDev = (): number => ppsCss() * state.dpr;
 /** 画面に入る時間(秒) */
@@ -27,17 +23,6 @@ export const requestOverlay = (): void => {
 export const requestView = (): void => {
   state.dirtyView = true;
 };
-
-const zoomRange = (): [number, number] => [
-  Math.max(1 / 8, MIN_PPS / settings.speed),
-  Math.min(8, MAX_PPS / settings.speed),
-];
-
-/** 速度の設定が変わったとき、ズーム倍率を許される範囲に収める */
-export function clampZoomT(): void {
-  const [lo, hi] = zoomRange();
-  rt.zoomT = clamp(rt.zoomT, lo, hi);
-}
 
 /** 右端の時刻の許される範囲: 最も古い履歴 〜 最新 */
 function clampEdge(): void {
@@ -86,14 +71,13 @@ export function panWindow(frac: number): void {
 
 /** 時間軸のズーム。ライブ中は右端(いま)、止まっているときは anchorX の位置を基準にする */
 export function zoomTime(factor: number, anchorX: number | null): void {
-  const [lo, hi] = zoomRange();
-  const z1 = clamp(rt.zoomT * factor, lo, hi);
-  if (z1 === rt.zoomT) return;
+  const z1 = clamp(settings.zoom * factor, ZOOM_MIN, ZOOM_MAX);
+  if (z1 === settings.zoom) return;
   const W = state.width;
   const follow = !rt.paused;
   const ax = follow || anchorX == null ? W - 1 : clamp(anchorX, 0, W - 1);
   const tA = timeAtX(ax);
-  rt.zoomT = z1;
+  settings.zoom = z1;
   state.tEdge = tA + (W - 1 - ax) / ppsDev();
   if (!follow) clampEdge();
   requestFull();
@@ -146,7 +130,7 @@ export function panFreq(dy: number): void {
 
 /** ズームを戻す(時間・周波数とも)。ライブか一時停止かは変えない */
 export function resetZoom(): void {
-  rt.zoomT = 1;
+  settings.zoom = 1;
   state.fwin = null;
   if (rt.paused) clampEdge();
   requestView();

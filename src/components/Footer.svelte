@@ -1,7 +1,7 @@
 <script lang="ts">
   import { rt } from '../runtime.svelte';
   import { resetZoom } from '../actions';
-  import { isNoteMode, noteLang, settings } from '../settings.svelte';
+  import { BASE_PPS, isNoteMode, noteLang, settings } from '../settings.svelte';
   import { fmtHz } from '../engine/format';
   import { describePitch } from '../engine/notes';
   import LevelBar from './LevelBar.svelte';
@@ -11,8 +11,8 @@
   const noteMode = $derived(isNoteMode());
   const peakNote = $derived(rt.peak ? describePitch(rt.peak.f, noteLang()) : '');
   const hoverNote = $derived(rt.hover ? describePitch(rt.hover.f, noteLang()) : '');
-  const seconds = $derived(rt.widthCss ? (rt.widthCss / (settings.speed * rt.zoomT)).toFixed(1) : '');
-  const zoomed = $derived(rt.zoomT !== 1 || rt.zoomF > 1.01);
+  const seconds = $derived(rt.widthCss ? (rt.widthCss / (BASE_PPS * settings.zoom)).toFixed(1) : '');
+  const zoomed = $derived(settings.zoom !== 1 || rt.zoomF > 1.01);
 
   // 再生プレーヤー(ファイル入力時)は、作った要素をそのまま置く
   $effect(() => {
@@ -41,7 +41,7 @@
   <span id="status" class:err={rt.statusErr}>{rt.status}</span>
   {#if zoomed}
     <button class="small" title="ズームを戻す(0 / ダブルクリック / ダブルタップ)" onclick={resetZoom}>
-      ズーム 時間×{rt.zoomT.toFixed(1)} 周波数×{rt.zoomF.toFixed(1)} ✕
+      ズーム 時間×{settings.zoom.toFixed(1)} 周波数×{rt.zoomF.toFixed(1)} ✕
     </button>
   {/if}
   {#if seconds}<span class="muted nowrap">表示幅 約 {seconds} 秒</span>{/if}

@@ -5,11 +5,11 @@ describe('設定の読み込み(sanitize)', () => {
   it('空や壊れた値は既定値になる', () => {
     expect(sanitize(null)).toEqual(DEFAULTS);
     expect(sanitize('x')).toEqual(DEFAULTS);
-    expect(sanitize({ fft: 12345, colormap: 'nope', speed: 'fast', a4: 1 })).toEqual(DEFAULTS);
+    expect(sanitize({ fft: 12345, colormap: 'nope', zoom: 'fast', a4: 1 })).toEqual(DEFAULTS);
   });
 
   it('古いバージョンの保存データ(新しい項目なし)でも、既存の値を保ち、新しい項目は既定値で補う', () => {
-    const old = { source: 'display', fft: 8192, fmin: 50, fmax: 5000, speed: 80, colormap: 'magma' };
+    const old = { source: 'display', fft: 8192, fmin: 50, fmax: 5000, colormap: 'magma' };
     const s = sanitize(old);
     expect(s.source).toBe('display');
     expect(s.fft).toBe(8192);
@@ -19,6 +19,14 @@ describe('設定の読み込み(sanitize)', () => {
     expect(s.channels).toBe(DEFAULTS.channels);
     expect(s.labels).toBe(DEFAULTS.labels);
     expect(s.a4).toBe(440);
+    expect(s.zoom).toBe(DEFAULTS.zoom);
+  });
+
+  it('時間軸の拡大率は範囲内に収める', () => {
+    expect(sanitize({ zoom: 100 }).zoom).toBe(8);
+    expect(sanitize({ zoom: 0.001 }).zoom).toBe(1 / 8);
+    expect(sanitize({ zoom: 2 }).zoom).toBe(2);
+    expect(sanitize({ zoom: NaN }).zoom).toBe(DEFAULTS.zoom);
   });
 
   it('許される値はそのまま通る', () => {

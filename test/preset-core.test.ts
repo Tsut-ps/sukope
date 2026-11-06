@@ -12,7 +12,7 @@ function press(state: { s: Settings; custom: Partial<Settings> | null }, id: str
   return r;
 }
 
-const customSettings = (): Settings => ({ ...DEFAULTS, fft: 16384, fmin: 100, fmax: 3000, speed: 80, colormap: 'turbo', smooth: 0.45 });
+const customSettings = (): Settings => ({ ...DEFAULTS, fft: 16384, fmin: 100, fmax: 3000, zoom: 0.5, colormap: 'turbo', smooth: 0.45 });
 
 describe('用途プリセットの押し直し', () => {
   it('カスタムから用途を押すと切り替わり、もう一度押すとカスタムに戻る', () => {
@@ -43,7 +43,7 @@ describe('用途プリセットの押し直し', () => {
     const st = { s: customSettings(), custom: null as Partial<Settings> | null };
     press(st, 'music');
     press(st, 'music'); // カスタムに戻る
-    st.s = { ...st.s, speed: 240 }; // さらに調整
+    st.s = { ...st.s, zoom: 4 }; // さらに調整
     const adjusted = snapshot(st.s);
     press(st, 'music');
     press(st, 'music');

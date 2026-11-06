@@ -18,8 +18,8 @@ export interface Settings {
   fmin: number;
   /** 0 = ナイキスト */
   fmax: number;
-  /** スクロール速度(CSS px/秒) */
-  speed: number;
+  /** 時間軸の拡大率(1 = 標準)。ホイール・ピンチで変わり、保存される */
+  zoom: number;
   colormap: ColormapName;
   smooth: number;
   axisMode: AxisMode;
@@ -39,13 +39,11 @@ export const FFT_SIZES = [1024, 2048, 4096, 8192, 16384, 32768];
 export const FMIN_LIST = [0, 20, 50, 100, 200, 500, 1000, 2000];
 export const FMAX_LIST = [1000, 2000, 5000, 8000, 10000, 20000, 0];
 export const A4_LIST = [415, 430, 432, 435, 438, 440, 442, 444, 445, 450];
-export const SPEEDS = [
-  { value: 40, label: '遅い' },
-  { value: 80, label: 'やや遅い' },
-  { value: 120, label: '標準' },
-  { value: 240, label: '速い' },
-  { value: 480, label: '最速' },
-];
+/** 拡大率 1 のときの時間軸の速さ(CSS px/秒) */
+export const BASE_PPS = 120;
+/** 時間軸の拡大率の下限・上限 */
+export const ZOOM_MIN = 1 / 8;
+export const ZOOM_MAX = 8;
 export const COLORMAPS: { value: ColormapName; label: string }[] = [
   { value: 'viridis', label: 'Viridis(色覚配慮)' },
   { value: 'cividis', label: 'Cividis(色覚配慮)' },
@@ -79,7 +77,7 @@ export const DEFAULTS: Settings = {
   scale: 'log',
   fmin: 20,
   fmax: 20000,
-  speed: 120,
+  zoom: 1,
   colormap: 'viridis',
   smooth: 0,
   axisMode: 'hz',
@@ -97,6 +95,12 @@ const int = (v: unknown, lo: number, hi: number, def: number): number =>
 const bool = (v: unknown, def: boolean): boolean => (typeof v === 'boolean' ? v : def);
 
 /** 保存値を信用せず、1項目ずつ検証して、不正なもの・足りないものは既定値にする */
+/** 保存データの拡大率。数値でなければ既定値、範囲外なら範囲内に収める */
+function zoomOf(r: Record<string, unknown>): number {
+  const z = r.zoom;
+  return typeof z === 'number' && isFinite(z) ? Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)) : DEFAULTS.zoom;
+}
+
 export function sanitize(raw: unknown): Settings {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const d = DEFAULTS;
@@ -117,11 +121,7 @@ export function sanitize(raw: unknown): Settings {
     scale: pick(r.scale, ['log', 'lin'], d.scale),
     fmin: pick(r.fmin, FMIN_LIST, d.fmin),
     fmax: pick(r.fmax, FMAX_LIST, d.fmax),
-    speed: pick(
-      r.speed,
-      SPEEDS.map((o) => o.value),
-      d.speed,
-    ),
+    zoom: zoomOf(r),
     colormap: pick(
       r.colormap,
       COLORMAPS.map((o) => o.value),

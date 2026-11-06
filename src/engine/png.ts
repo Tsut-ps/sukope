@@ -43,7 +43,7 @@ export function savePng(): void {
     ...(settings.channels === 'lr' ? ['L/R'] : []),
     `表示幅 約 ${windowSec().toFixed(1)} 秒`,
   ];
-  if (rt.zoomT !== 1 || rt.zoomF > 1.01) info.push(`ズーム 時間×${rt.zoomT.toFixed(1)} 周波数×${rt.zoomF.toFixed(1)}`);
+  if (settings.zoom !== 1 || rt.zoomF > 1.01) info.push(`ズーム 時間×${settings.zoom.toFixed(1)} 周波数×${rt.zoomF.toFixed(1)}`);
   g.font = `${12 * d}px system-ui, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif`;
   g.textBaseline = 'middle';
   g.textAlign = 'left';
