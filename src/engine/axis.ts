@@ -1,13 +1,18 @@
 /** 左軸。Hz の目盛り、または音名のときは鍵盤を描く。 */
-import { $, ctx2d } from './dom';
+import { ctx2d } from './dom';
 import { state, view } from './state';
 import { tickList, yOf } from './freqmap';
 import { fmtTick } from './format';
 import { isBlack, noteName, noteView, pcName, pcOf, yOfMidi } from './notes';
-import { isNoteMode, noteLang } from './settings';
+import { isNoteMode, noteLang } from '../settings.svelte';
 
-const axisCanvas = $<HTMLCanvasElement>('axis');
-const actx = ctx2d(axisCanvas);
+let axisCanvas!: HTMLCanvasElement;
+let actx!: CanvasRenderingContext2D;
+
+export function bindAxis(canvas: HTMLCanvasElement): void {
+  axisCanvas = canvas;
+  actx = ctx2d(canvas);
+}
 
 export function resizeAxis(cssWidth: number, h: number, dpr: number): void {
   axisCanvas.width = Math.round(cssWidth * dpr);

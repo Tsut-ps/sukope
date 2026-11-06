@@ -1,27 +1,15 @@
 import './style.css';
-import { $ } from './dom';
-import { state } from './state';
-import { hooks, listDevices } from './audio';
-import { frame, rebuildColors, resize, updateView } from './app';
-import { drawLevel } from './level';
-import { initUi } from './ui';
+import { mount } from 'svelte';
+import App from './App.svelte';
+import { rt } from './runtime.svelte';
+import { settings } from './settings.svelte';
+import { state } from './engine/state';
 
-hooks.onConnected = updateView;
-hooks.onStopped = () => {
-  state.level = null;
-  $('peak').textContent = 'ピーク: —';
-  drawLevel();
-};
-
-initUi();
-rebuildColors();
-new ResizeObserver(resize).observe($('host'));
-resize();
-updateView();
-listDevices().catch(() => {});
-requestAnimationFrame(frame);
+const target = document.getElementById('app-root');
+if (!target) throw new Error('#app-root が見つかりません');
+mount(App, { target });
 
 // 動作確認用: URL に ?debug を付けたときだけ状態を公開する
 if (new URLSearchParams(location.search).has('debug')) {
-  (window as unknown as { __spec: typeof state }).__spec = state;
+  (window as unknown as Record<string, unknown>).__spec = { state, rt, settings };
 }

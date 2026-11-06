@@ -22,15 +22,15 @@ export interface ViewInput {
   log: boolean;
   noteMode: boolean;
   fminSel: number;
-  /** 'nyq' またはHz */
-  fmaxSel: string;
+  /** Hz。0 のときはナイキスト */
+  fmaxSel: number;
   nyquist: number;
 }
 
 /** 設定値から実際に使う表示範囲を決める(音名表示は対数固定) */
 export function resolveView(o: ViewInput): View {
   const log = o.log || o.noteMode;
-  const fmax = Math.min(o.fmaxSel === 'nyq' ? o.nyquist : +o.fmaxSel, o.nyquist);
+  const fmax = Math.min(o.fmaxSel === 0 ? o.nyquist : o.fmaxSel, o.nyquist);
   let fmin = log ? Math.max(o.fminSel, 20) : o.fminSel;
   if (fmin >= fmax) fmin = log ? 20 : 0;
   return { log, fmin, fmax };

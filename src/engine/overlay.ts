@@ -1,29 +1,45 @@
 /** スペクトログラム上のグリッド線、カーソル位置の表示。 */
-import { $, ctx2d } from './dom';
+import { ctx2d } from './dom';
+import { rt } from '../runtime.svelte';
 import { state, view } from './state';
 import { freqAt, tickList, yOf } from './freqmap';
+import { isBlack, noteView, pcOf, yOfMidi } from './notes';
+import { describePitch } from './notes';
 import { fmtHz } from './format';
-import { describePitch, isBlack, noteView, pcOf, yOfMidi } from './notes';
-import { isNoteMode, noteLang } from './settings';
+import { isNoteMode, noteLang } from '../settings.svelte';
 
-export const overlayCanvas = $<HTMLCanvasElement>('over');
-const octx = ctx2d(overlayCanvas);
+let overlayCanvas!: HTMLCanvasElement;
+let octx!: CanvasRenderingContext2D;
 
 export function resizeOverlay(w: number, h: number): void {
   overlayCanvas.width = w;
   overlayCanvas.height = h;
 }
 
-export function initOverlay(): void {
-  overlayCanvas.addEventListener('pointermove', (e) => {
-    const r = overlayCanvas.getBoundingClientRect();
-    state.hoverY = (e.clientY - r.top) * state.dpr;
-    drawOverlay();
-  });
-  overlayCanvas.addEventListener('pointerleave', () => {
-    state.hoverY = null;
-    drawOverlay();
-  });
+/** キャンバスを結びつけ、カーソル追従を始める。戻り値は後片付け */
+export function bindOverlay(canvas: HTMLCanvasElement): () => void {
+  overlayCanvas = canvas;
+  octx = ctx2d(canvas);
+  const ac = new AbortController();
+  const { signal } = ac;
+  canvas.addEventListener(
+    'pointermove',
+    (e) => {
+      const r = canvas.getBoundingClientRect();
+      state.hoverY = (e.clientY - r.top) * state.dpr;
+      drawOverlay();
+    },
+    { signal },
+  );
+  canvas.addEventListener(
+    'pointerleave',
+    () => {
+      state.hoverY = null;
+      drawOverlay();
+    },
+    { signal },
+  );
+  return () => ac.abort();
 }
 
 export function drawOverlay(): void {
@@ -64,9 +80,8 @@ export function drawOverlay(): void {
     octx.stroke();
   }
 
-  const hover = $('hover');
   if (state.hoverY == null) {
-    hover.textContent = '';
+    rt.hover = null;
     return;
   }
   const y = Math.min(Math.max(state.hoverY, 0), H - 1);
@@ -87,7 +102,5 @@ export function drawOverlay(): void {
   octx.fillRect(W - w - 6 * d, ty - 9 * d, w, 18 * d);
   octx.fillStyle = '#fff';
   octx.fillText(txt, W - 12 * d, ty);
-  hover.innerHTML = noteMode
-    ? `カーソル: <b>${note}</b> ${fmtHz(f)}`
-    : `カーソル: <b>${fmtHz(f)}</b> ${note}`;
+  rt.hover = f;
 }

@@ -1,11 +1,16 @@
 /** スペクトログラムの本体。履歴をレベル値(1〜255)で保持し、色は後から変えられる。 */
-import { $, ctx2d } from './dom';
+import { ctx2d } from './dom';
 import { state } from './state';
 import { dbToLevel } from './colormap';
 import type { RowMap } from './freqmap';
 
-export const specCanvas = $<HTMLCanvasElement>('spec');
-const sctx = ctx2d(specCanvas);
+export let specCanvas!: HTMLCanvasElement;
+let sctx!: CanvasRenderingContext2D;
+
+export function bindSpectrogram(canvas: HTMLCanvasElement): void {
+  specCanvas = canvas;
+  sctx = ctx2d(canvas);
+}
 
 /** 履歴(列優先: hist[x * 高さ + y])。0 = データなし */
 let hist = new Uint8Array(0);

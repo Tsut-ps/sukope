@@ -1,16 +1,7 @@
 /** 音声入力(入力デバイス / 画面共有 / ファイル)の取得と解析ノードの接続。 */
-import { $ } from './dom';
 import { state } from './state';
-import { readSettings } from './settings';
-import { setRunningUi, setStatus } from './status';
-
-/** app 側が差し込む通知 */
-export const hooks = {
-  /** 解析ノードが接続された(サンプルレートが確定した)とき */
-  onConnected: () => {},
-  /** 停止したとき */
-  onStopped: () => {},
-};
+import { rt, setStatus, ui } from '../runtime.svelte';
+import { settings } from '../settings.svelte';
 
 export async function ensureCtx(): Promise<AudioContext> {
   if (!state.ctx) {
@@ -23,25 +14,25 @@ export async function ensureCtx(): Promise<AudioContext> {
   return state.ctx;
 }
 
-function connectGraph(node: AudioNode, monitor: boolean, label: string): void {
+function connectGraph(node: AudioNode, monitor: boolean, live: boolean, label: string): void {
   const ctx = state.ctx;
   if (!ctx) return;
-  const c = readSettings();
   const an = ctx.createAnalyser();
-  an.fftSize = c.fft;
-  an.smoothingTimeConstant = c.smooth;
+  an.fftSize = settings.fft;
+  an.smoothingTimeConstant = settings.smooth;
   node.connect(an);
   if (monitor) an.connect(ctx.destination);
   state.node = node;
   state.analyser = an;
   state.data = new Float32Array(an.frequencyBinCount);
-  state.sampleRate = ctx.sampleRate;
-  state.running = true;
+  state.live = live;
+  state.silentSince = performance.now();
   state.acc = 0;
-  setRunningUi(true);
-  $('hint').classList.add('hidden');
-  setStatus(`${label} / ${state.sampleRate} Hz`);
-  hooks.onConnected();
+  rt.sampleRate = ctx.sampleRate;
+  rt.running = true;
+  rt.silent = false;
+  rt.everStarted = true;
+  setStatus(`${label} / ${ctx.sampleRate} Hz`);
 }
 
 export function stop(): void {
@@ -53,12 +44,12 @@ export function stop(): void {
   } catch {
     /* すでに切断済み */
   }
-  if (state.player) {
-    state.player.pause();
-    state.player.removeAttribute('src');
-    state.player.load();
-    state.player.remove();
-    state.player = null;
+  const p = rt.player;
+  if (p) {
+    p.pause();
+    p.removeAttribute('src');
+    p.load();
+    rt.player = null;
   }
   if (state.url) {
     URL.revokeObjectURL(state.url);
@@ -66,10 +57,12 @@ export function stop(): void {
   }
   state.node = null;
   state.analyser = null;
-  state.running = false;
-  setRunningUi(false);
+  state.live = false;
+  rt.running = false;
+  rt.silent = false;
+  rt.level = null;
+  rt.peak = null;
   setStatus('停止中');
-  hooks.onStopped();
 }
 
 function errText(e: unknown): string {
@@ -83,25 +76,37 @@ function errText(e: unknown): string {
 export async function listDevices(): Promise<void> {
   if (!navigator.mediaDevices?.enumerateDevices) return;
   const devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
-  const sel = $<HTMLSelectElement>('device');
-  const cur = sel.value;
-  sel.replaceChildren(new Option('既定の入力', ''));
-  devs.forEach((d, i) => {
-    if (d.deviceId !== 'default') sel.add(new Option(d.label || `入力 ${i + 1}`, d.deviceId));
-  });
-  if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
+  rt.devices = devs
+    .filter((d) => d.deviceId !== 'default')
+    .map((d, i) => ({ id: d.deviceId, label: d.label || `入力 ${i + 1}` }));
+  // 権限が出る前は ID が空のことがある。ID が分かっていて、保存した入力が無くなっているときだけ既定に戻す
+  if (settings.deviceId && rt.devices.some((d) => d.id) && !rt.devices.some((d) => d.id === settings.deviceId)) {
+    settings.deviceId = '';
+  }
 }
 
 /** 加工なしで取り込む(ループバックの音を変えないため) */
 const RAW_AUDIO = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
 
-async function startDevice(ctx: AudioContext): Promise<void> {
+async function openInput(): Promise<MediaStream> {
   const audio: MediaTrackConstraints = { ...RAW_AUDIO };
-  const id = $<HTMLSelectElement>('device').value;
-  if (id) audio.deviceId = { exact: id };
-  state.stream = await navigator.mediaDevices.getUserMedia({ audio });
+  if (settings.deviceId) audio.deviceId = { exact: settings.deviceId };
+  try {
+    return await navigator.mediaDevices.getUserMedia({ audio });
+  } catch (e) {
+    // 保存していたデバイスが無いときは、既定の入力でやり直す
+    if (settings.deviceId && (e as { name?: string } | null)?.name === 'OverconstrainedError') {
+      settings.deviceId = '';
+      return navigator.mediaDevices.getUserMedia({ audio: RAW_AUDIO });
+    }
+    throw e;
+  }
+}
+
+async function startDevice(ctx: AudioContext): Promise<void> {
+  state.stream = await openInput();
   const label = state.stream.getAudioTracks()[0]?.label || 'デバイス';
-  connectGraph(ctx.createMediaStreamSource(state.stream), false, `入力: ${label}`);
+  connectGraph(ctx.createMediaStreamSource(state.stream), false, true, `入力: ${label}`);
   void listDevices();
 }
 
@@ -120,7 +125,7 @@ async function startDisplay(ctx: AudioContext): Promise<void> {
       if (state.stream === stream) stop();
     }),
   );
-  connectGraph(ctx.createMediaStreamSource(new MediaStream(audioTracks)), false, '共有された音声');
+  connectGraph(ctx.createMediaStreamSource(new MediaStream(audioTracks)), false, true, '共有された音声');
 }
 
 export async function startFile(file: File): Promise<void> {
@@ -131,12 +136,9 @@ export async function startFile(file: File): Promise<void> {
   const a = document.createElement('audio');
   a.controls = true;
   a.src = state.url;
-  $('playerBox').replaceChildren(a);
-  state.player = a;
-  const name = $('fileName');
-  name.textContent = file.name;
-  name.classList.remove('muted');
-  connectGraph(ctx.createMediaElementSource(a), true, `ファイル: ${file.name}`);
+  rt.player = a;
+  rt.fileName = file.name;
+  connectGraph(ctx.createMediaElementSource(a), true, false, `ファイル: ${file.name}`);
   try {
     await a.play();
   } catch {
@@ -146,10 +148,10 @@ export async function startFile(file: File): Promise<void> {
 
 export async function start(): Promise<void> {
   stop();
-  const mode = $<HTMLSelectElement>('source').value;
+  const mode = settings.source;
   if (mode === 'file') {
     if (state.file) return startFile(state.file);
-    $('file').click();
+    ui.pickFile();
     return;
   }
   if (!navigator.mediaDevices) {

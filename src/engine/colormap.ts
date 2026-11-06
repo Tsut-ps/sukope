@@ -1,11 +1,12 @@
 /** 配色と、dB → 色の対応。 */
 
-export type ColormapName = 'inferno' | 'magma' | 'viridis' | 'turbo' | 'gray';
+export type ColormapName = 'inferno' | 'magma' | 'viridis' | 'cividis' | 'turbo' | 'gray';
 
 const MAPS: Record<ColormapName, string[]> = {
   inferno: ['#000004', '#1b0c41', '#4a0c6b', '#781c6d', '#a52c60', '#cf4446', '#ed6925', '#fb9b06', '#f7d13d', '#fcffa4'],
   magma: ['#000004', '#140e36', '#3b0f70', '#641a80', '#8c2981', '#b73779', '#de4968', '#f7705c', '#fe9f6d', '#fecf92', '#fcfdbf'],
   viridis: ['#440154', '#482878', '#3e4989', '#31688e', '#26828e', '#1f9e89', '#35b779', '#6ece58', '#b5de2b', '#fde725'],
+  cividis: ['#00224e', '#123570', '#3b496c', '#575d6d', '#707173', '#8a8678', '#a59c74', '#c3b369', '#e1cc55', '#fee838'],
   turbo: ['#30123b', '#4662d7', '#36aaf9', '#1ae4b6', '#72fe5e', '#c7ef34', '#faba39', '#f66b19', '#ca2a04', '#7a0403'],
   gray: ['#000000', '#ffffff'],
 };
@@ -53,4 +54,13 @@ export function buildLevelLut(cmap: Uint8ClampedArray, dbMin: number, dbMax: num
     out[q * 3 + 1] = cmap[i * 3 + 1];
     out[q * 3 + 2] = cmap[i * 3 + 2];
   }
+}
+
+const cache = new Map<ColormapName, Uint8ClampedArray>();
+
+/** 配色の RGB 表(作り直さないよう覚えておく) */
+export function getCmap(name: ColormapName): Uint8ClampedArray {
+  let c = cache.get(name);
+  if (!c) cache.set(name, (c = buildColormap(name)));
+  return c;
 }

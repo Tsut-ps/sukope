@@ -1,14 +1,15 @@
 /** レベルバー。ハンドルをドラッグして、色に割り当てる dB の下限・上限を設定する。 */
-import { $, ctx2d } from './dom';
-import { state } from './state';
-import { palette } from './palette';
-import { colorIndex, DB_HI, DB_LO } from './colormap';
+import { ctx2d } from './dom';
+import { rt } from '../runtime.svelte';
+import { DB_GAP, DEFAULTS, settings } from '../settings.svelte';
+import { colorIndex, DB_HI, DB_LO, getCmap } from './colormap';
 import { clamp } from './util';
 
 type Handle = 'min' | 'max';
 
-const lvl = $<HTMLCanvasElement>('lvl');
-const g = ctx2d(lvl);
+let lvl!: HTMLCanvasElement;
+let g!: CanvasRenderingContext2D;
+let bound = false;
 
 let LW = 360; // CSS px。画面幅に追従する
 let LX1 = LW - 36;
@@ -16,16 +17,14 @@ const LH = 52;
 const LX0 = 36;
 const LB0 = 20; // バーの上端
 const LB1 = 32; // バーの下端
-const DB_GAP = 5;
-const DEFAULT_DB = { min: -100, max: -30 };
 
 const dbToX = (db: number): number => LX0 + ((db - DB_LO) / (DB_HI - DB_LO)) * (LX1 - LX0);
 const xToDb = (x: number): number => DB_LO + ((x - LX0) / (LX1 - LX0)) * (DB_HI - DB_LO);
 
 let active: Handle = 'min';
-let onChange: () => void = () => {};
 
 export function drawLevel(): void {
+  if (!bound) return;
   const d = window.devicePixelRatio || 1;
   LW = Math.max(220, lvl.clientWidth || 360);
   LX1 = LW - 36;
@@ -35,8 +34,9 @@ export function drawLevel(): void {
   }
   g.setTransform(d, 0, 0, d, 0, 0);
   g.clearRect(0, 0, LW, LH);
-  const { min, max } = state.db;
-  const cmap = palette.cmap;
+  const min = settings.dbMin;
+  const max = settings.dbMax;
+  const cmap = getCmap(settings.colormap);
   const w = LX1 - LX0;
   for (let px = 0; px < w; px++) {
     // 実際のスペクトログラムと同じ対応で塗る
@@ -63,9 +63,9 @@ export function drawLevel(): void {
       g.fillText(String(db), x, LB1 + 6);
     }
   }
-  if (state.level != null) {
+  if (rt.level != null) {
     // 現在のピークレベル
-    const x = Math.round(dbToX(clamp(state.level, DB_LO, DB_HI)));
+    const x = Math.round(dbToX(clamp(rt.level, DB_LO, DB_HI)));
     g.fillStyle = 'rgba(0,0,0,.7)';
     g.fillRect(x - 2, LB0 - 2, 4, LB1 - LB0 + 4);
     g.fillStyle = '#fff';
@@ -75,7 +75,7 @@ export function drawLevel(): void {
   g.textBaseline = 'top';
   for (const k of ['min', 'max'] as const) {
     // ハンドル
-    const db = state.db[k];
+    const db = k === 'min' ? settings.dbMin : settings.dbMax;
     const x = Math.round(dbToX(db)) + 0.5;
     const col = k === active ? '#ff9f43' : '#e6e9ef';
     g.fillStyle = col;
@@ -96,11 +96,12 @@ export function drawLevel(): void {
   }
 }
 
+const getDb = (k: Handle): number => (k === 'min' ? settings.dbMin : settings.dbMax);
+
 function setDb(k: Handle, v: number): void {
   const r = Math.round(v);
-  if (k === 'min') state.db.min = clamp(r, DB_LO, state.db.max - DB_GAP);
-  else state.db.max = clamp(r, state.db.min + DB_GAP, DB_HI);
-  onChange();
+  if (k === 'min') settings.dbMin = clamp(r, DB_LO, settings.dbMax - DB_GAP);
+  else settings.dbMax = clamp(r, settings.dbMin + DB_GAP, DB_HI);
 }
 
 const pointerDb = (e: PointerEvent): number => {
@@ -108,39 +109,66 @@ const pointerDb = (e: PointerEvent): number => {
   return xToDb(((e.clientX - r.left) * LW) / r.width);
 };
 
-/** onDbChange は、dB 範囲が変わったとき(履歴の描き直し)に呼ばれる */
-export function initLevel(onDbChange: () => void): void {
-  onChange = onDbChange;
-  lvl.addEventListener('pointerdown', (e) => {
-    const db = pointerDb(e);
-    const dm = Math.abs(db - state.db.min);
-    const dM = Math.abs(db - state.db.max);
-    active = dm < dM || (dm === dM && db < state.db.min) ? 'min' : 'max';
-    lvl.setPointerCapture(e.pointerId);
-    lvl.focus({ preventScroll: true });
-    setDb(active, db);
-    e.preventDefault();
-  });
-  lvl.addEventListener('pointermove', (e) => {
-    if (lvl.hasPointerCapture(e.pointerId)) setDb(active, pointerDb(e));
-  });
-  lvl.addEventListener('dblclick', () => {
-    state.db.min = DEFAULT_DB.min;
-    state.db.max = DEFAULT_DB.max;
-    onChange();
-  });
-  lvl.addEventListener('keydown', (e) => {
-    const step = e.shiftKey ? 5 : 1;
-    if (e.key === 'ArrowLeft') setDb(active, state.db[active] - step);
-    else if (e.key === 'ArrowRight') setDb(active, state.db[active] + step);
-    else if (e.key === 'ArrowUp') {
-      active = 'max';
+/** キャンバスを結びつけ、ドラッグ・キー操作を受け付ける。戻り値は後片付け */
+export function initLevel(canvas: HTMLCanvasElement): () => void {
+  lvl = canvas;
+  g = ctx2d(canvas);
+  bound = true;
+  const ac = new AbortController();
+  const { signal } = ac;
+  canvas.addEventListener(
+    'pointerdown',
+    (e) => {
+      const db = pointerDb(e);
+      const dm = Math.abs(db - settings.dbMin);
+      const dM = Math.abs(db - settings.dbMax);
+      active = dm < dM || (dm === dM && db < settings.dbMin) ? 'min' : 'max';
+      canvas.setPointerCapture(e.pointerId);
+      canvas.focus({ preventScroll: true });
+      setDb(active, db);
       drawLevel();
-    } else if (e.key === 'ArrowDown') {
-      active = 'min';
-      drawLevel();
-    } else return;
-    e.preventDefault();
-  });
-  new ResizeObserver(() => drawLevel()).observe(lvl);
+      e.preventDefault();
+    },
+    { signal },
+  );
+  canvas.addEventListener(
+    'pointermove',
+    (e) => {
+      if (canvas.hasPointerCapture(e.pointerId)) setDb(active, pointerDb(e));
+    },
+    { signal },
+  );
+  canvas.addEventListener(
+    'dblclick',
+    () => {
+      settings.dbMin = DEFAULTS.dbMin;
+      settings.dbMax = DEFAULTS.dbMax;
+    },
+    { signal },
+  );
+  canvas.addEventListener(
+    'keydown',
+    (e) => {
+      const step = e.shiftKey ? 5 : 1;
+      if (e.key === 'ArrowLeft') setDb(active, getDb(active) - step);
+      else if (e.key === 'ArrowRight') setDb(active, getDb(active) + step);
+      else if (e.key === 'ArrowUp') {
+        active = 'max';
+        drawLevel();
+      } else if (e.key === 'ArrowDown') {
+        active = 'min';
+        drawLevel();
+      } else return;
+      e.preventDefault();
+    },
+    { signal },
+  );
+  const ro = new ResizeObserver(() => drawLevel());
+  ro.observe(canvas);
+  drawLevel();
+  return () => {
+    ac.abort();
+    ro.disconnect();
+    bound = false;
+  };
 }

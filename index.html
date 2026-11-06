@@ -4,86 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>sukope</title>
+<meta name="theme-color" content="#0e1116">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 </head>
 <body>
-<header>
-  <div class="row">
-    <div class="grp">
-      <label for="source">入力</label>
-      <select id="source">
-        <option value="device">入力デバイス(マイク/ループバック)</option>
-        <option value="display">タブ・画面の音声を共有</option>
-        <option value="file">音声ファイル</option>
-      </select>
-    </div>
-    <div class="grp" id="deviceWrap">
-      <label for="device">デバイス</label>
-      <select id="device"><option value="">既定の入力</option></select>
-    </div>
-    <div class="grp hidden" id="fileWrap">
-      <label class="btn" for="file">ファイルを選択…</label>
-      <input type="file" id="file" accept="audio/*,video/*" class="hidden">
-      <span id="fileName" class="muted">(ここへドロップも可)</span>
-    </div>
-    <button id="start" class="primary">開始</button>
-    <button id="pause" title="スペースキーでも切り替え">表示を止める</button>
-    <button id="png">PNG保存</button>
-    <button id="optBtn" class="only-sm">設定 ▾</button>
-  </div>
-  <div class="row" id="opts">
-    <div class="grp"><label for="fft" title="大きいほど周波数の分解能が上がり、時間の分解能は下がります">FFT</label>
-      <select id="fft">
-        <option>1024</option><option>2048</option><option selected>4096</option><option>8192</option><option>16384</option><option>32768</option>
-      </select></div>
-    <div class="grp"><label for="scale">周波数軸</label>
-      <select id="scale"><option value="log" selected>対数</option><option value="lin">線形</option></select></div>
-    <div class="grp"><label for="fmin">周波数 下限</label>
-      <select id="fmin">
-        <option value="0">0 Hz(対数時は20)</option><option value="20" selected>20 Hz</option><option value="50">50 Hz</option>
-        <option value="100">100 Hz</option><option value="200">200 Hz</option><option value="500">500 Hz</option>
-        <option value="1000">1 kHz</option><option value="2000">2 kHz</option>
-      </select></div>
-    <div class="grp"><label for="fmax">上限</label>
-      <select id="fmax">
-        <option value="1000">1 kHz</option><option value="2000">2 kHz</option><option value="5000">5 kHz</option>
-        <option value="10000">10 kHz</option><option value="20000" selected>20 kHz</option><option value="nyq">ナイキスト</option>
-      </select></div>
-    <div class="grp"><label for="speed">速度</label>
-      <select id="speed">
-        <option value="40">遅い</option><option value="80">やや遅い</option><option value="120" selected>標準</option><option value="240">速い</option><option value="480">最速</option>
-      </select></div>
-    <div class="grp"><label for="map">配色</label>
-      <select id="map"><option value="inferno" selected>Inferno</option><option value="magma">Magma</option><option value="viridis">Viridis</option><option value="turbo">Turbo</option><option value="gray">グレー</option></select></div>
-    <div class="grp"><label for="smooth" title="0で瞬時値、大きいほど時間方向になめらか">平滑化</label><input type="range" id="smooth" min="0" max="0.9" step="0.05" value="0"><span class="val" id="smoothV"></span></div>
-    <div class="grp"><label for="notes" title="音名にすると左軸が鍵盤になり、ドレミファソラシの線が引かれます(周波数軸は対数固定)">左軸</label>
-      <select id="notes"><option value="hz" selected>Hz</option><option value="en">C D E F G A B</option><option value="jp">ド レ ミ ファ ソ ラ シ</option></select></div>
-  </div>
-</header>
-
-<main>
-  <div id="axisCol"><canvas id="axis"></canvas></div>
-  <div id="host">
-    <canvas id="spec"></canvas>
-    <canvas id="over"></canvas>
-    <div id="hint"><div class="hintBody">
-      入力を選んで <b>「開始」</b> を押してください。<br>
-      PCの再生音は、<b>ループバック入力デバイス</b>(BlackHole / Loopback / ステレオミキサー / VB-CABLE など)を選ぶか、<br>
-      <b>「タブ・画面の音声を共有」</b>(Chrome/Edge)で取り込めます。<br>
-      音声ファイルはこの画面にドラッグ&amp;ドロップしても再生・解析できます。
-    </div></div>
-  </div>
-</main>
-
-<footer>
-  <canvas id="lvl" tabindex="0" title="レベルバー: ▼のハンドルをドラッグして dB の上限・下限を設定(ダブルクリックでリセット)。白線は現在のピークレベル。フォーカス中は ←→ で値を変更、↑↓ でハンドル切替(Shiftで5dB刻み)"></canvas>
-  <span id="peak">ピーク: —</span>
-  <span id="hover"></span>
-  <span class="spacer"></span>
-  <span id="playerBox"></span>
-  <span id="status">停止中</span>
-  <span id="timeinfo" class="muted"></span>
-</footer>
+<div id="app-root"></div>
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
