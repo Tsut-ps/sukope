@@ -62,7 +62,7 @@ export function initUi(): void {
       if (!b) return;
       const a = document.createElement('a');
       a.href = URL.createObjectURL(b);
-      a.download = `spectrogram-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+      a.download = `sukope-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }),
