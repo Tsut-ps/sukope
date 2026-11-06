@@ -295,6 +295,8 @@ function frame(ts: number): void {
       behindT = ts;
       const b = Math.round(Math.max(0, state.vt - state.tEdge) * 10) / 10;
       if (b !== rt.behind) rt.behind = b;
+      // 止めて過去を見ている間も、取り込み中は「何秒前」が増え続けるので、カーソルの読み取りを更新する
+      if (state.bands.length && state.hoverX != null) state.dirtyOverlay = true;
     }
   } else if (rt.behind) rt.behind = 0;
 
