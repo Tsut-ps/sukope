@@ -1,7 +1,11 @@
 /** 画面の操作。ボタン・ショートカット・ドロップが同じ処理を呼ぶ。 */
 import { rt } from './runtime.svelte';
 import { AXIS_MODES, COLORMAPS, FFT_SIZES, SPEEDS, settings } from './settings.svelte';
-import { start, startFile, stop } from './engine/audio';
+import { ensureCtx, start, startFile, stop } from './engine/audio';
+import { imageToWav } from './engine/imagesynth';
+import { state, view } from './engine/state';
+import { ppsCss } from './engine/viewport';
+import { setStatus } from './runtime.svelte';
 import { savePng } from './engine/png';
 import { panWindow, resetZoom, setPaused } from './engine/viewport';
 
@@ -80,7 +84,31 @@ export const toggleAnalysis = (): void => {
 
 export { savePng, resetZoom, panWindow };
 
+/** 画像を、いま見えている範囲の上に絵が載るような音にして再生する(イースターエッグ) */
+async function playImage(img: File): Promise<void> {
+  stop();
+  setStatus('画像を音にしています…');
+  try {
+    const ctx = await ensureCtx();
+    const wav = await imageToWav({
+      file: img,
+      view: { ...view },
+      sampleRate: ctx.sampleRate,
+      panelHeightCss: state.panelH / state.dpr,
+      pxPerSec: ppsCss(),
+    });
+    settings.source = 'file';
+    await startFile(wav);
+  } catch (e) {
+    setStatus((e as Error).message || '画像を音にできませんでした', true);
+  }
+}
+
 export function openFile(f: File): void {
+  if (f.type.startsWith('image/')) {
+    void playImage(f);
+    return;
+  }
   settings.source = 'file';
   void startFile(f);
 }

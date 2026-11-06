@@ -36,6 +36,14 @@
     if (e.detail > 0) (e.target as HTMLElement | null)?.closest('button')?.blur();
   }
 
+  // 貼り付け(コピーした画像や音声ファイル)も、ドロップと同じに扱う
+  function onPaste(e: ClipboardEvent) {
+    const f = e.clipboardData?.files[0];
+    if (!f || /^(INPUT|SELECT|TEXTAREA)$/.test((e.target as HTMLElement | null)?.tagName ?? '')) return;
+    e.preventDefault();
+    openFile(f);
+  }
+
   function onDrop(e: DragEvent) {
     e.preventDefault();
     const f = e.dataTransfer?.files[0];
@@ -43,7 +51,7 @@
   }
 </script>
 
-<svelte:window onkeydown={onKeydown} onclick={blurAfterClick} ondragover={(e) => e.preventDefault()} ondrop={onDrop} />
+<svelte:window onkeydown={onKeydown} onclick={blurAfterClick} ondragover={(e) => e.preventDefault()} ondrop={onDrop} onpaste={onPaste} />
 <svelte:document onfullscreenchange={() => (rt.fullscreen = !!document.fullscreenElement)} />
 
 <div id="app" class:immersive={rt.immersive}>
