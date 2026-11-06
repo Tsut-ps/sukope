@@ -9,6 +9,8 @@ header{background:var(--panel);border-bottom:1px solid var(--line);padding:8px 1
 .row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
 .grp{display:flex;align-items:center;gap:6px}
 label{color:var(--muted);white-space:nowrap}
+label.chk{display:inline-flex;align-items:center;gap:4px;color:var(--text);cursor:pointer}
+input[type=checkbox]{accent-color:var(--accent);margin:0}
 select,button,.btn{background:#222833;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:inherit;cursor:pointer}
 select{max-width:320px}
 button:hover,.btn:hover,select:hover{border-color:#4a5566}
@@ -105,3 +107,16 @@ footer{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,e
   #hint{font-size:11px;line-height:1.5;padding:6px}
   #opts{max-height:70dvh}
 }
+
+/* チューナー */
+#tuner{position:absolute;top:8px;right:8px;width:168px;padding:8px 10px 10px;background:rgba(14,17,22,.86);border:1px solid var(--line);border-radius:10px;text-align:center;pointer-events:none;font-variant-numeric:tabular-nums}
+#tuner .note{font-size:34px;font-weight:700;line-height:1.1;color:var(--muted)}
+#tuner.on .note{color:var(--text)}
+#tuner.ok .note{color:#6ee7a0}
+#tuner .hz{font-size:12px;color:var(--muted);min-height:1.4em}
+#tuner .meter{position:relative;height:14px;margin-top:6px}
+#tuner .meter::before{content:"";position:absolute;left:0;right:0;top:6px;height:2px;background:#2f3744}
+#tuner .meter .mid{position:absolute;left:50%;top:0;width:2px;height:14px;margin-left:-1px;background:#6ee7a0}
+#tuner .meter .needle{position:absolute;top:1px;width:4px;height:12px;margin-left:-2px;border-radius:2px;background:var(--accent)}
+#tuner.ok .needle{background:#6ee7a0}
+#tuner .cents{font-size:12px;color:var(--muted);min-height:1.4em;margin-top:2px}

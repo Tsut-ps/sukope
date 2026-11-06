@@ -1,6 +1,8 @@
 /** スペクトログラム上の操作: カーソル/タップの読み取り、ズーム、移動、ピンチ。 */
 import { rt } from '../runtime.svelte';
-import { state } from './state';
+import { settings } from '../settings.svelte';
+import { panelAt, state, view } from './state';
+import { freqAt, yOf } from './freqmap';
 import { panFreq, panTime, requestOverlay, resetZoom, zoomFreq, zoomTime } from './viewport';
 
 /** この距離(CSS px)動かすまでは、タップとして扱う */
@@ -34,6 +36,22 @@ export function bindGestures(canvas: HTMLCanvasElement): () => void {
     state.hoverX = state.hoverY = null;
     state.hoverUntil = 0;
     rt.hover = null;
+    requestOverlay();
+  };
+  /** 倍音マーカーの基音をクリック/タップした位置にする。固定済みの線の近くなら解除 */
+  const pinAt = (_cx: number, cy: number): void => {
+    if (!settings.harmonics) return;
+    const { sy, r } = scale();
+    const { ly } = panelAt((cy - r.top) * sy);
+    if (state.pinF != null) {
+      const py = yOf(view, state.panelH, state.pinF);
+      if (Math.abs(py - ly) < 8 * state.dpr) {
+        state.pinF = null;
+        requestOverlay();
+        return;
+      }
+    }
+    state.pinF = freqAt(view, 1 - ly / state.panelH);
     requestOverlay();
   };
   let pinchRaf = 0;
@@ -115,6 +133,7 @@ export function bindGestures(canvas: HTMLCanvasElement): () => void {
     const wasPan = pan && pan.id === e.pointerId ? pan : null;
     if (wasPan) pan = null;
     canvas.classList.remove('grabbing');
+    if (wasPan && !wasPan.moved && e.type !== 'pointercancel' && e.pointerType === 'mouse') pinAt(e.clientX, e.clientY);
     if (!wasPan || wasPan.moved || e.type === 'pointercancel' || e.pointerType === 'mouse') return;
     // タップ: 読み取りを固定して表示。続けてもう一度タップするとズームを戻す
     const now = performance.now();
@@ -125,6 +144,7 @@ export function bindGestures(canvas: HTMLCanvasElement): () => void {
       return;
     }
     lastTap = { t: now, x: e.clientX, y: e.clientY };
+    pinAt(e.clientX, e.clientY);
     setHover(e.clientX, e.clientY);
     state.hoverUntil = now + PIN_SHOW_MS;
   };

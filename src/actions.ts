@@ -62,6 +62,22 @@ export function stepSpeed(dir: 1 | -1): void {
   settings.speed = step(list, settings.speed, dir);
 }
 
+export const toggleLabels = (): void => {
+  settings.labels = !settings.labels;
+};
+export const toggleHarmonics = (): void => {
+  settings.harmonics = !settings.harmonics;
+};
+export const toggleTuner = (): void => {
+  settings.tuner = !settings.tuner;
+};
+export const toggleChannels = (): void => {
+  settings.channels = settings.channels === 'lr' ? 'mix' : 'lr';
+};
+export const toggleAnalysis = (): void => {
+  settings.analysis = settings.analysis === 'cqt' ? 'fft' : 'cqt';
+};
+
 export { savePng, resetZoom, panWindow };
 
 export function openFile(f: File): void {

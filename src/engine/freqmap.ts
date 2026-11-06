@@ -45,13 +45,31 @@ export interface RowMap {
   fr: Float32Array;
 }
 
-export function buildRows(v: View, height: number, bins: number, nyquist: number): RowMap {
+/** 周波数 f に対応する、連続値のビン番号(ビンの中心周波数の表 freqs の上で線形に補間する) */
+function binIndexOf(freqs: ArrayLike<number>, f: number): number {
+  const n = freqs.length;
+  if (f <= freqs[0]) return 0;
+  if (f >= freqs[n - 1]) return n - 1;
+  let lo = 0;
+  let hi = n - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (freqs[mid] <= f) lo = mid;
+    else hi = mid;
+  }
+  return lo + (f - freqs[lo]) / (freqs[hi] - freqs[lo]);
+}
+
+/** freqs = 各ビンの中心周波数(昇順)。等間隔でなくてもよい */
+export function buildRows(v: View, height: number, freqs: ArrayLike<number>): RowMap {
+  const bins = freqs.length;
   const lo = new Int32Array(height);
   const hi = new Int32Array(height);
   const fr = new Float32Array(height);
+  if (bins < 2) return { lo, hi: hi.fill(-1), fr };
   for (let y = 0; y < height; y++) {
-    const ba = (freqAt(v, 1 - (y + 1) / height) / nyquist) * bins;
-    const bb = (freqAt(v, 1 - y / height) / nyquist) * bins;
+    const ba = binIndexOf(freqs, freqAt(v, 1 - (y + 1) / height));
+    const bb = binIndexOf(freqs, freqAt(v, 1 - y / height));
     if (bb - ba > 1) {
       // 1 行が複数ビンにまたがる → 最大値を取る
       lo[y] = clamp(Math.round(ba), 0, bins - 1);

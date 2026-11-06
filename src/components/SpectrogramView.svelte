@@ -2,7 +2,9 @@
   import { onMount, untrack } from 'svelte';
   import { rt } from '../runtime.svelte';
   import { settings } from '../settings.svelte';
-  import { applyFft, applySmooth, initEngine, rebuildColors, resetFreqWindow } from '../engine/render';
+  import { state } from '../engine/state';
+  import Tuner from './Tuner.svelte';
+  import { applyAnalysis, applyReferencePitch, applySmooth, initEngine, rebuildColors, resetFreqWindow } from '../engine/render';
   import { clampZoomT, requestFull, requestOverlay } from '../engine/viewport';
   import { fullscreenSupported, goLive, toggleFullscreen, toggleImmersive, togglePause } from '../actions';
 
@@ -29,8 +31,20 @@
     });
   });
   $effect(() => {
-    void settings.fft;
-    untrack(applyFft);
+    void [settings.fft, settings.analysis, settings.channels];
+    untrack(applyAnalysis);
+  });
+  $effect(() => {
+    void settings.a4;
+    untrack(applyReferencePitch);
+  });
+  // 表示だけが変わる設定(ラベル・倍音)は、オーバーレイを描き直す
+  $effect(() => {
+    void [settings.labels, settings.harmonics, settings.tuner];
+    untrack(() => {
+      if (!settings.harmonics) state.pinF = null;
+      requestOverlay();
+    });
   });
   $effect(() => {
     void settings.smooth;
@@ -47,6 +61,7 @@
   <div id="host" bind:this={host}>
     <canvas bind:this={spec}></canvas>
     <canvas id="over" bind:this={over}></canvas>
+    {#if settings.tuner}<Tuner />{/if}
     {#if !rt.everStarted}
       <div id="hint">
         <div class="hintBody">

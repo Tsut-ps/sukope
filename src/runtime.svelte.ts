@@ -15,6 +15,14 @@ export interface HoverInfo {
   ago: number;
 }
 
+export interface PitchInfo {
+  f: number;
+  /** 最も近い音(MIDI 番号)と、そこからのずれ(セント) */
+  midi: number;
+  cents: number;
+  clarity: number;
+}
+
 export interface DeviceOption {
   id: string;
   label: string;
@@ -34,6 +42,8 @@ export const rt = $state({
   zoomF: 1,
   /** ライブより何秒前を見ているか(一時停止中のみ) */
   behind: 0,
+  /** チューナーが検出した音程。検出できないときは null */
+  pitch: null as PitchInfo | null,
   /** 現在のピークレベル(dB)。無音のときは null */
   level: null as number | null,
   /** 入力があるのに、しばらく音が来ていない */

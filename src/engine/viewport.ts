@@ -2,7 +2,7 @@
 import { rt } from '../runtime.svelte';
 import { settings } from '../settings.svelte';
 import { hist, oldestTime } from './history';
-import { state } from './state';
+import { panelAt, state } from './state';
 import type { View } from './freqmap';
 import { clamp } from './util';
 
@@ -112,6 +112,9 @@ function setWindow(lo: number, hi: number): void {
 /** いまの(まだ描画に反映されていないものを含む)周波数の表示窓 */
 const currentWindow = (): { lo: number; hi: number } => state.fwin ?? { lo: state.base.fmin, hi: state.base.fmax };
 
+/** 画面上の y(デバイスピクセル)を、その段の中の位置にする */
+const localY = (y: number): number => panelAt(y).ly;
+
 /** 周波数軸のズーム。anchorY(デバイスピクセル、上端が 0)の位置が動かないようにする */
 export function zoomFreq(factor: number, anchorY: number | null): void {
   const b = state.base;
@@ -123,21 +126,21 @@ export function zoomFreq(factor: number, anchorY: number | null): void {
   const minSpan = Math.min(b.log ? Math.log(1.2) : 40, b1 - b0);
   const ns = clamp(span / factor, minSpan, b1 - b0);
   if (Math.abs(ns - span) < 1e-9) return;
-  const c = anchorY == null || !state.height ? 0.5 : 1 - clamp(anchorY / state.height, 0, 1);
+  const c = anchorY == null || !state.panelH ? 0.5 : 1 - clamp(localY(anchorY) / state.panelH, 0, 1);
   const n0 = clamp(c0 + c * span - c * ns, b0, b1 - ns);
   setWindow(hzOf(b, n0), hzOf(b, n0 + ns));
 }
 
 /** 内容を dy(デバイスピクセル)だけ下へ引っ張る = 高い周波数へ */
 export function panFreq(dy: number): void {
-  if (!state.fwin || !state.height) return;
+  if (!state.fwin || !state.panelH) return;
   const b = state.base;
   const b0 = axisOf(b, b.fmin);
   const b1 = axisOf(b, b.fmax);
   const w = currentWindow();
   const c0 = axisOf(b, w.lo);
   const span = axisOf(b, w.hi) - c0;
-  const n0 = clamp(c0 + (dy / state.height) * span, b0, b1 - span);
+  const n0 = clamp(c0 + (dy / state.panelH) * span, b0, b1 - span);
   setWindow(hzOf(b, n0), hzOf(b, n0 + span));
 }
 

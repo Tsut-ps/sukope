@@ -1,8 +1,12 @@
 /** 音声入力(入力デバイス / 画面共有 / ファイル)の取得と解析ノードの接続。 */
-import { state } from './state';
-import { ensureBins } from './history';
+import { state, type Band } from './state';
+import { ensureLayout } from './history';
+import { buildLayout } from './layout';
 import { rt, setStatus, ui } from '../runtime.svelte';
 import { settings } from '../settings.svelte';
+
+/** 音程検出用の時間波形のサイズ(サンプル数) */
+const PITCH_FFT = 4096;
 
 export async function ensureCtx(): Promise<AudioContext> {
   if (!state.ctx) {
@@ -15,18 +19,90 @@ export async function ensureCtx(): Promise<AudioContext> {
   return state.ctx;
 }
 
+/** 解析のつなぎ(Analyser 群)を、いまの設定で作り直す。ビン数や左右の分け方が変わっても履歴は残す */
+export function buildGraph(): void {
+  const ctx = state.ctx;
+  const node = state.node;
+  if (!ctx || !node) return;
+  teardownAnalysers();
+  const layout = buildLayout(settings.analysis, settings.fft, ctx.sampleRate);
+  const chs = settings.channels === 'lr' ? 2 : 1;
+  let splitter: ChannelSplitterNode | null = null;
+  if (chs === 2) {
+    // モノラルの入力でも左右に同じ音が出るよう、いったん 2ch にそろえてから分ける
+    const up = ctx.createGain();
+    up.channelCount = 2;
+    up.channelCountMode = 'explicit';
+    up.channelInterpretation = 'speakers';
+    splitter = ctx.createChannelSplitter(2);
+    node.connect(up);
+    up.connect(splitter);
+    state.chain = [up, splitter];
+  }
+  const bands: Band[] = [];
+  for (let c = 0; c < chs; c++) {
+    for (const spec of layout.specs) {
+      const an = ctx.createAnalyser();
+      an.fftSize = spec.fft;
+      an.smoothingTimeConstant = settings.smooth;
+      if (splitter) splitter.connect(an, c);
+      else node.connect(an);
+      bands.push({
+        an,
+        tmp: new Float32Array(an.frequencyBinCount) as Float32Array<ArrayBuffer>,
+        ch: c,
+        k0: spec.k0,
+        k1: spec.k1,
+        off: spec.off,
+        src: splitter ?? node,
+      });
+    }
+  }
+  state.bands = bands;
+  state.freqs = layout.freqs;
+  state.data = Array.from({ length: chs }, () => new Float32Array(layout.freqs.length));
+  ensureLayout(layout.freqs, chs);
+  if (!state.pitchAn) {
+    state.pitchAn = ctx.createAnalyser();
+    state.pitchAn.fftSize = PITCH_FFT;
+    state.pitchBuf = new Float32Array(PITCH_FFT);
+    node.connect(state.pitchAn);
+  }
+}
+
+function teardownAnalysers(): void {
+  for (const b of state.bands) {
+    try {
+      b.src.disconnect(b.an);
+    } catch {
+      /* すでに切断済み */
+    }
+  }
+  for (const n of state.chain) {
+    try {
+      n.disconnect();
+    } catch {
+      /* すでに切断済み */
+    }
+  }
+  // 引数なしの disconnect は出力をすべて外してしまう(再生音のモニターも)ので、挟んだノードがあるときだけ
+  if (state.chain[0]) {
+    try {
+      state.node?.disconnect(state.chain[0]);
+    } catch {
+      /* すでに切断済み */
+    }
+  }
+  state.chain = [];
+  state.bands = [];
+}
+
 function connectGraph(node: AudioNode, monitor: boolean, live: boolean, label: string): void {
   const ctx = state.ctx;
   if (!ctx) return;
-  const an = ctx.createAnalyser();
-  an.fftSize = settings.fft;
-  an.smoothingTimeConstant = settings.smooth;
-  node.connect(an);
-  if (monitor) an.connect(ctx.destination);
+  if (monitor) node.connect(ctx.destination);
   state.node = node;
-  state.analyser = an;
-  state.data = new Float32Array(an.frequencyBinCount);
-  ensureBins(an.frequencyBinCount);
+  buildGraph();
   state.live = live;
   state.silentSince = performance.now();
   state.acc = 0;
@@ -40,12 +116,18 @@ function connectGraph(node: AudioNode, monitor: boolean, live: boolean, label: s
 export function stop(): void {
   state.stream?.getTracks().forEach((t) => t.stop());
   state.stream = null;
+  teardownAnalysers();
   try {
     state.node?.disconnect();
-    state.analyser?.disconnect();
   } catch {
     /* すでに切断済み */
   }
+  try {
+    state.pitchAn?.disconnect();
+  } catch {
+    /* すでに切断済み */
+  }
+  state.pitchAn = null;
   const p = rt.player;
   if (p) {
     p.pause();
@@ -58,12 +140,12 @@ export function stop(): void {
     state.url = null;
   }
   state.node = null;
-  state.analyser = null;
   state.live = false;
   rt.running = false;
   rt.silent = false;
   rt.level = null;
   rt.peak = null;
+  rt.pitch = null;
   setStatus('停止中');
 }
 

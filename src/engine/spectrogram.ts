@@ -1,11 +1,10 @@
 /** スペクトログラムの描画。履歴(リングバッファ)から、いまの表示窓・配色で画素を作る。 */
 import { ctx2d } from './dom';
-import { state } from './state';
+import { computePanels, panelAt, state } from './state';
 import { hist, firstAfter, phys, timeAt } from './history';
 import { levelToDb } from './colormap';
 import type { RowMap } from './freqmap';
 import { ppsDev } from './viewport';
-import { clamp } from './util';
 
 export let specCanvas!: HTMLCanvasElement;
 let sctx!: CanvasRenderingContext2D;
@@ -44,6 +43,7 @@ export function resizeSpectrogram(w: number, h: number, dpr: number): void {
   state.dpr = dpr;
   state.width = w;
   state.height = h;
+  computePanels();
   specCanvas.width = w;
   specCanvas.height = h;
 }
@@ -52,20 +52,20 @@ export function resizeSpectrogram(w: number, h: number, dpr: number): void {
 function select(t: number, half: number): boolean {
   const n = hist.count;
   if (!n) return false;
-  const bins = hist.bins;
+  const stride = hist.stride;
   const a = firstAfter(t - half);
   const b = firstAfter(t + half);
   if (b - a === 1) {
     curSrc = hist.data;
-    curOff = phys(a) * bins;
+    curOff = phys(a) * stride;
     return true;
   }
   if (b - a > 1) {
-    if (tmp.length !== bins) tmp = new Uint8Array(bins);
+    if (tmp.length !== stride) tmp = new Uint8Array(stride);
     else tmp.fill(0);
     for (let i = a; i < b; i++) {
-      const o = phys(i) * bins;
-      for (let k = 0; k < bins; k++) if (hist.data[o + k] > tmp[k]) tmp[k] = hist.data[o + k];
+      const o = phys(i) * stride;
+      for (let k = 0; k < stride; k++) if (hist.data[o + k] > tmp[k]) tmp[k] = hist.data[o + k];
     }
     curSrc = tmp;
     curOff = 0;
@@ -83,15 +83,15 @@ function select(t: number, half: number): boolean {
   if (a < n && timeAt(a) - t < bd) best = a;
   if (best < 0) return false;
   curSrc = hist.data;
-  curOff = phys(best) * bins;
+  curOff = phys(best) * stride;
   return true;
 }
 
-/** 選んだ列から、ピクセル行 y のレベル(1〜255)を求める */
-function rowLevel(y: number): number {
+/** 選んだ列のチャンネル(chOff = チャンネル * ビン数)から、ピクセル行 y のレベル(1〜255)を求める */
+function rowLevel(y: number, chOff: number): number {
   const { lo, hi, fr } = rows!;
   const s = curSrc;
-  const o = curOff;
+  const o = curOff + chOff;
   const h = hi[y];
   if (h < 0) {
     const k = lo[y];
@@ -110,10 +110,13 @@ function paint(x0: number, x1: number): void {
   const H = state.height;
   const w = x1 - x0;
   if (w <= 0 || !rows || !H) return;
+  const P = state.panels;
+  const ph = state.panelH;
+  const pitch = ph + state.gap;
   const need = w * H * 4;
   if (buf.byteLength < need) buf = new ArrayBuffer(need);
   const px32 = new Uint32Array(buf, 0, w * H);
-  if (colLv.length !== H) colLv = new Uint8Array(H);
+  if (colLv.length !== P * ph) colLv = new Uint8Array(P * ph);
   const pps = ppsDev();
   const half = 0.5 / pps;
   const black = llut32[0];
@@ -128,9 +131,20 @@ function paint(x0: number, x1: number): void {
     }
     // 複数列の最大値(作業用の配列)は毎回中身が違うので、使い回さない
     const key = curSrc === hist.data ? curOff : -2;
-    if (key < 0 || key !== prevKey) for (let y = 0; y < H; y++) colLv[y] = rowLevel(y);
+    if (key < 0 || key !== prevKey) {
+      for (let p = 0; p < P; p++) {
+        const chOff = Math.min(p, hist.ch - 1) * hist.bins;
+        for (let y = 0; y < ph; y++) colLv[p * ph + y] = rowLevel(y, chOff);
+      }
+    }
     prevKey = key;
-    for (let y = 0; y < H; y++) px32[y * w + o] = llut32[colLv[y]];
+    for (let p = 0; p < P; p++) {
+      const top = p * pitch;
+      for (let y = 0; y < ph; y++) px32[(top + y) * w + o] = llut32[colLv[p * ph + y]];
+      // 段の間(と端数の行)は黒
+      const end = p === P - 1 ? H : top + pitch;
+      for (let y = top + ph; y < end; y++) px32[y * w + o] = black;
+    }
   }
   const px = new Uint8ClampedArray(buf, 0, need);
   sctx.putImageData(new ImageData(px, w, H), x0, 0);
@@ -156,10 +170,10 @@ export function scrollBy(n: number): void {
 /** 画面上の位置 (x, y)(デバイスピクセル)の時刻と dB。データが無ければ db = null */
 export function probe(x: number, y: number): { t: number; db: number | null } {
   const W = state.width;
-  const H = state.height;
   const pps = ppsDev();
   const t = state.tEdge - (W - 1 - x) / pps;
-  if (!rows || !H || !select(t, 0.5 / pps)) return { t, db: null };
-  const q = rowLevel(clamp(Math.round(y), 0, H - 1));
+  if (!rows || !state.height || !select(t, 0.5 / pps)) return { t, db: null };
+  const { p, ly } = panelAt(y);
+  const q = rowLevel(Math.round(ly), Math.min(p, hist.ch - 1) * hist.bins);
   return { t, db: q ? levelToDb(q) : null };
 }

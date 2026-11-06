@@ -2,7 +2,10 @@
   import { onMount } from 'svelte';
   import { rt, ui } from '../runtime.svelte';
   import {
+    A4_LIST,
+    ANALYSIS_MODES,
     AXIS_MODES,
+    CHANNEL_MODES,
     COLORMAPS,
     FFT_SIZES,
     FMAX_LIST,
@@ -82,8 +85,14 @@
   <PresetBar />
   <div class="row" id="opts">
     <div class="grp">
-      <label for="fft" title="大きいほど周波数の分解能が上がり、時間の分解能は下がります">FFT</label>
-      <select id="fft" bind:value={settings.fft}>
+      <label for="analysis" title="音階向けは、低音ほど周波数を細かく・高音ほど時間を細かく見ます(1オクターブごとに FFT サイズを切り替え)">解析</label>
+      <select id="analysis" bind:value={settings.analysis}>
+        {#each ANALYSIS_MODES as m (m.value)}<option value={m.value}>{m.label}</option>{/each}
+      </select>
+    </div>
+    <div class="grp">
+      <label for="fft" title="大きいほど周波数の分解能が上がり、時間の分解能は下がります(音階向け解析のときは自動)">FFT</label>
+      <select id="fft" bind:value={settings.fft} disabled={settings.analysis === 'cqt'}>
         {#each FFT_SIZES as n (n)}<option value={n}>{n}</option>{/each}
       </select>
     </div>
@@ -133,6 +142,27 @@
         {#each AXIS_MODES as m (m.value)}<option value={m.value}>{m.label}</option>{/each}
       </select>
     </div>
+    <div class="grp">
+      <label for="channels">チャンネル</label>
+      <select id="channels" bind:value={settings.channels}>
+        {#each CHANNEL_MODES as m (m.value)}<option value={m.value}>{m.label}</option>{/each}
+      </select>
+    </div>
+    <div class="grp">
+      <label for="a4" title="音名の基準(A4 の周波数)。ピアノは 440、古楽は 415 など">A4</label>
+      <select id="a4" bind:value={settings.a4}>
+        {#each A4_LIST as n (n)}<option value={n}>{n} Hz</option>{/each}
+      </select>
+    </div>
+    <label class="chk" title="鳴っている音の名前を、スペクトログラムに流して表示(B)">
+      <input type="checkbox" bind:checked={settings.labels} />音名ラベル
+    </label>
+    <label class="chk" title="クリック/タップした周波数を基音として、倍音の線を引く(K)">
+      <input type="checkbox" bind:checked={settings.harmonics} />倍音
+    </label>
+    <label class="chk" title="いま鳴っている音の高さを、ずれ(セント)つきで表示(T)">
+      <input type="checkbox" bind:checked={settings.tuner} />チューナー
+    </label>
     <button title="FFT・範囲・配色などを初期値に戻す(入力の選択は残します)" onclick={resetSettings}>初期化</button>
     <span class="grow"></span>
     <button title="ヘッダーとフッターを隠す(H)" onclick={toggleImmersive}>表示に集中</button>

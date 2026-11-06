@@ -1,6 +1,7 @@
 /** 左軸。Hz の目盛り、または音名のときは鍵盤を描く。 */
 import { ctx2d } from './dom';
 import { state, view } from './state';
+import { settings } from '../settings.svelte';
 import { tickList, yOf } from './freqmap';
 import { fmtTick } from './format';
 import { isBlack, noteName, noteView, pcName, pcOf, yOfMidi } from './notes';
@@ -22,13 +23,28 @@ export function resizeAxis(cssWidth: number, h: number, dpr: number): void {
 }
 
 export function drawAxis(): void {
-  const d = state.dpr;
   const H = state.height;
   const A = axisCanvas.width;
   actx.clearRect(0, 0, A, axisCanvas.height);
   if (!H) return;
+  const ph = state.panelH;
+  const pitch = ph + state.gap;
+  for (let p = 0; p < state.panels; p++) {
+    actx.save();
+    actx.translate(0, p * pitch);
+    actx.beginPath();
+    actx.rect(0, 0, A, ph);
+    actx.clip();
+    drawPanelAxis(ph);
+    actx.restore();
+  }
+}
+
+function drawPanelAxis(H: number): void {
+  const d = state.dpr;
+  const A = axisCanvas.width;
   if (isNoteMode()) {
-    drawKeys();
+    drawKeys(H);
     return;
   }
   actx.font = `${11 * d}px system-ui, sans-serif`;
@@ -45,7 +61,7 @@ export function drawAxis(): void {
     actx.lineTo(A, Math.round(y) + 0.5);
     actx.stroke();
   }
-  if (A / d >= 60) {
+  if (A / d >= 60 && settings.channels === 'mix') {
     // 狭い画面では目盛りと重なるので省略
     actx.textAlign = 'left';
     actx.textBaseline = 'top';
@@ -55,9 +71,8 @@ export function drawAxis(): void {
 }
 
 /** 左軸を鍵盤にする(低音が下) */
-function drawKeys(): void {
+function drawKeys(H: number): void {
   const d = state.dpr;
-  const H = state.height;
   const A = axisCanvas.width;
   const lang = noteLang();
   const { m0, m1, semi } = noteView(view, H / d);

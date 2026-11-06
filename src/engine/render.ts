@@ -1,5 +1,5 @@
 /** 画面全体の更新(表示範囲・リサイズ・フレーム描画)をまとめる。 */
-import { state, view } from './state';
+import { computePanels, state, view } from './state';
 import { rt } from '../runtime.svelte';
 import { isNoteMode, settings } from '../settings.svelte';
 import { buildRows, resolveView } from './freqmap';
@@ -8,7 +8,11 @@ import { bindAxis, drawAxis, resizeAxis } from './axis';
 import { bindOverlay, drawOverlay, resizeOverlay } from './overlay';
 import { bindSpectrogram, redrawAll, resizeSpectrogram, scrollBy, setLevelLut, setRows } from './spectrogram';
 import { bindGestures } from './gesture';
-import { ensureBins, hist, pushFrame } from './history';
+import { hist, pushFrame } from './history';
+import { buildGraph } from './audio';
+import { clearLabels, trackLabels } from './labels';
+import { detectPitch, median } from './pitch';
+import { hzToMidi, setReferencePitch } from './notes';
 import { ppsDev, requestFull, requestOverlay } from './viewport';
 import { clamp } from './util';
 
@@ -25,6 +29,9 @@ let host: HTMLElement | null = null;
 let axisCol: HTMLElement | null = null;
 let rafId = 0;
 let behindT = 0;
+let labelT = 0;
+/** 音名ラベルとチューナーの更新間隔(ms) */
+const LABEL_MS = 50;
 
 export interface EngineElements {
   host: HTMLElement;
@@ -55,11 +62,11 @@ export function initEngine(els: EngineElements): () => void {
   };
 }
 
-/** 1 ピクセル行ごとの FFT ビン対応を作り直す(表示範囲・FFT サイズが変わったとき) */
+/** 1 ピクセル行ごとの FFT ビン対応を作り直す(表示範囲・解析の並びが変わったとき) */
 function rebuildRows(): void {
-  if (!state.height) return;
-  const bins = hist.bins || settings.fft / 2;
-  setRows(buildRows(view, state.height, bins, rt.sampleRate / 2));
+  if (!state.panelH) return;
+  // 履歴があれば履歴の並びで描く(解析を切り替えた直後に履歴を作り直すまでの間も整合する)
+  setRows(buildRows(view, state.panelH, hist.bins ? hist.freqs : state.freqs));
 }
 
 const spanOf = (v: { log: boolean; fmin: number; fmax: number }): number =>
@@ -95,20 +102,28 @@ export function resetFreqWindow(): void {
   updateView();
 }
 
-/** FFT サイズが変わったとき */
-export function applyFft(): void {
-  const an = state.analyser;
-  if (an) {
-    an.fftSize = settings.fft;
-    state.data = new Float32Array(an.frequencyBinCount);
-    ensureBins(an.frequencyBinCount);
-  }
+/** 解析の方式・FFT サイズ・チャンネルの分け方が変わったとき */
+export function applyAnalysis(): void {
+  state.panels = settings.channels === 'lr' ? 2 : 1;
+  computePanels();
+  if (!host) return;
+  // 取り込み中だけ解析のつなぎと履歴を作り直す(止まっているときは、次の開始で反映する)
+  if (state.node) buildGraph();
   rebuildRows();
+  drawAxis();
+  requestOverlay();
   requestFull();
 }
 
 export function applySmooth(): void {
-  if (state.analyser) state.analyser.smoothingTimeConstant = settings.smooth;
+  for (const b of state.bands) b.an.smoothingTimeConstant = settings.smooth;
+}
+
+/** 基準ピッチ(A4)が変わったとき */
+export function applyReferencePitch(): void {
+  setReferencePitch(settings.a4);
+  drawAxis();
+  requestOverlay();
 }
 
 /** dB 範囲や配色が変わったとき: 履歴全体を新しい色で描き直す */
@@ -134,19 +149,23 @@ function resize(): void {
   redrawAll();
 }
 
-/** 周波数データのピークを探して、読み取り表示とレベルバーに反映する */
+/** 周波数データのピークを探して、読み取り表示とレベルバーに反映する(左右を分けているときは両方から) */
 function updatePeak(): void {
-  const d = state.data;
-  const N = d.length;
-  const nyq = rt.sampleRate / 2;
-  const k0 = Math.max(1, Math.ceil((view.fmin / nyq) * N));
-  const k1 = Math.min(N - 2, Math.floor((view.fmax / nyq) * N));
+  const fr = state.freqs;
+  const N = fr.length;
   let m = -Infinity;
   let mk = -1;
-  for (let k = k0; k <= k1; k++) {
-    if (d[k] > m) {
-      m = d[k];
-      mk = k;
+  let mc = 0;
+  for (let c = 0; c < state.data.length; c++) {
+    const d = state.data[c];
+    for (let k = 1; k < N - 1; k++) {
+      if (fr[k] < view.fmin) continue;
+      if (fr[k] > view.fmax) break;
+      if (d[k] > m) {
+        m = d[k];
+        mk = k;
+        mc = c;
+      }
     }
   }
   rt.level = mk >= 0 && isFinite(m) ? m : null;
@@ -155,28 +174,69 @@ function updatePeak(): void {
     return;
   }
   // 放物線補間で、ビン間隔より細かくピーク周波数を推定する
-  let delta = 0;
+  const d = state.data[mc];
+  let f = fr[mk];
   const a = d[mk - 1];
-  const b = d[mk];
   const e = d[mk + 1];
   if (isFinite(a) && isFinite(e)) {
-    const den = a - 2 * b + e;
-    if (den) delta = clamp((0.5 * (a - e)) / den, -0.5, 0.5);
+    const den = a - 2 * m + e;
+    if (den) {
+      const delta = clamp((0.5 * (a - e)) / den, -0.5, 0.5);
+      f += delta >= 0 ? delta * (fr[mk + 1] - f) : delta * (f - fr[mk - 1]);
+    }
   }
-  rt.peak = { f: ((mk + delta) * nyq) / N, db: m };
+  rt.peak = { f, db: m };
 }
 
 /** 全帯域がほぼ無音の状態が続くかを見る(マイク・画面共有のときだけ) */
 function checkSilence(ts: number): void {
   if (!state.live) return;
   let m = -Infinity;
-  for (let k = 0; k < state.data.length; k++) if (state.data[k] > m) m = state.data[k];
+  for (const d of state.data) for (let k = 0; k < d.length; k++) if (d[k] > m) m = d[k];
   if (m > SILENT_DB) {
     state.silentSince = ts;
     if (rt.silent) rt.silent = false;
   } else if (!rt.silent && ts - state.silentSince > SILENT_MS) {
     rt.silent = true;
   }
+}
+
+/** チューナー: 時間波形から音程を求める。直近の中央値で安定させる */
+const pitchRecent: number[] = [];
+function tickPitch(): void {
+  const an = state.pitchAn;
+  if (!an || !settings.tuner) {
+    if (rt.pitch) rt.pitch = null;
+    pitchRecent.length = 0;
+    return;
+  }
+  an.getFloatTimeDomainData(state.pitchBuf);
+  const p = detectPitch(state.pitchBuf, rt.sampleRate);
+  if (!p) {
+    pitchRecent.shift();
+    if (!pitchRecent.length && rt.pitch) rt.pitch = null;
+    else if (pitchRecent.length) showPitch(p);
+    return;
+  }
+  pitchRecent.push(p.f);
+  if (pitchRecent.length > 5) pitchRecent.shift();
+  showPitch(p);
+}
+function showPitch(p: { clarity: number } | null): void {
+  const f = median(pitchRecent);
+  if (f == null) return;
+  const m = hzToMidi(f);
+  const r = Math.round(m);
+  rt.pitch = { f, midi: r, cents: (m - r) * 100, clarity: p ? p.clarity : (rt.pitch?.clarity ?? 0) };
+}
+
+/** 音名ラベルのしきい値(dB)。表示の dB 範囲に合わせる */
+const labelThreshold = (): number => settings.dbMin + 0.55 * (settings.dbMax - settings.dbMin);
+
+/** 履歴を空にして取り込みを最初からやり直すときに呼ぶ(音名ラベルも消す) */
+export function resetTracking(): void {
+  clearLabels();
+  pitchRecent.length = 0;
 }
 
 function frame(ts: number): void {
@@ -195,9 +255,11 @@ function frame(ts: number): void {
     state.dirtyOverlay = true;
   }
 
-  const an = state.analyser;
-  if (an) {
-    an.getFloatFrequencyData(state.data);
+  if (state.bands.length) {
+    for (const b of state.bands) {
+      b.an.getFloatFrequencyData(b.tmp);
+      state.data[b.ch].set(b.tmp.subarray(b.k0, b.k1), b.off);
+    }
     state.vt += dt;
     if (state.vt - state.lastCapT >= CAPTURE_SEC) {
       state.lastCapT = state.vt;
@@ -207,6 +269,11 @@ function frame(ts: number): void {
       state.peakT = ts;
       updatePeak();
       checkSilence(ts);
+    }
+    if (ts - labelT > LABEL_MS) {
+      labelT = ts;
+      if (settings.labels && !rt.paused) trackLabels(state.data, state.freqs, labelThreshold(), state.vt);
+      tickPitch();
     }
     if (!rt.paused) {
       // ライブ: 経過時間ぶんだけ流す

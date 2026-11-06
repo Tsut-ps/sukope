@@ -13,8 +13,14 @@ export const isBlack = (m: number): boolean => {
   return p === 1 || p === 3 || p === 6 || p === 8 || p === 10;
 };
 
-export const midiToHz = (m: number): number => 440 * Math.pow(2, (m - 69) / 12);
-export const hzToMidi = (f: number): number => 69 + 12 * Math.log2(f / 440);
+/** 基準ピッチ(A4 の周波数)。設定から差し替える */
+export const tuning = { a4: 440 };
+export const setReferencePitch = (a4: number): void => {
+  tuning.a4 = a4;
+};
+
+export const midiToHz = (m: number): number => tuning.a4 * Math.pow(2, (m - 69) / 12);
+export const hzToMidi = (f: number): number => 69 + 12 * Math.log2(f / tuning.a4);
 
 /** オクターブ番号なしの音名 */
 export const pcName = (m: number, lang: NoteLang): string => (lang === 'jp' ? NOTE_JP : NOTE_EN)[pcOf(m)];

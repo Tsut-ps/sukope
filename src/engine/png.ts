@@ -39,7 +39,8 @@ export function savePng(): void {
     'sukope',
     stamp,
     `${fmtHz(view.fmin)}〜${fmtHz(view.fmax)}`,
-    `FFT ${settings.fft}`,
+    settings.analysis === 'cqt' ? '音階向け解析' : `FFT ${settings.fft}`,
+    ...(settings.channels === 'lr' ? ['L/R'] : []),
     `表示幅 約 ${windowSec().toFixed(1)} 秒`,
   ];
   if (rt.zoomT !== 1 || rt.zoomF > 1.01) info.push(`ズーム 時間×${rt.zoomT.toFixed(1)} 周波数×${rt.zoomF.toFixed(1)}`);
