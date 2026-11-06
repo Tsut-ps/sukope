@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeId, clickPreset, PRESET_KEYS, PRESETS, snapshot, type PresetClick } from '../src/preset-core';
+import { activeId, axisFor, clickPreset, PRESET_KEYS, PRESETS, snapshot, type PresetClick } from '../src/preset-core';
 import { DEFAULTS, type Settings } from '../src/settings-schema';
 
 /** プリセットを押して、設定と「覚えているカスタム」を更新する(画面側と同じ動き) */
@@ -51,17 +51,39 @@ describe('用途プリセットの押し直し', () => {
   });
 
   it('覚えているカスタムが無いときは、選択中の用途を押しても何も起きない', () => {
-    const st = { s: { ...DEFAULTS, ...PRESETS[0].values } as Settings, custom: null as Partial<Settings> | null };
+    const st = { s: { ...DEFAULTS, ...PRESETS[0].values, axisMode: axisFor(PRESETS[0], 'hz') } as Settings, custom: null as Partial<Settings> | null };
     expect(activeId(st.s)).toBe(PRESETS[0].id);
     expect(press(st, PRESETS[0].id)).toBeNull();
   });
 
-  it('楽器は Hz 表示のとき音名表示に切り替わり、戻すと Hz 表示に戻る', () => {
+  it('用途を押すたびに、左軸も用途に合わせて上書きする', () => {
     const st = { s: { ...customSettings(), axisMode: 'hz' as const }, custom: null as Partial<Settings> | null };
     press(st, 'instrument');
+    expect(st.s.axisMode).toBe('jp'); // 音名の用途: Hz → 音名
+    press(st, 'ambient');
+    expect(st.s.axisMode).toBe('hz'); // Hz の用途: 音名 → Hz
+    press(st, 'voice');
     expect(st.s.axisMode).toBe('jp');
-    press(st, 'instrument');
+    press(st, 'voice'); // カスタム(Hz)に戻る
     expect(st.s.axisMode).toBe('hz');
+  });
+
+  it('音名の用途では、いま音名なら C D E / ド レ ミ の選択を保つ', () => {
+    const st = { s: { ...customSettings(), axisMode: 'en' as const }, custom: null as Partial<Settings> | null };
+    press(st, 'instrument');
+    expect(st.s.axisMode).toBe('en');
+    press(st, 'voice');
+    expect(st.s.axisMode).toBe('en');
+  });
+
+  it('左軸が用途と違うときは、その用途は選択中として扱わない', () => {
+    const st = { s: customSettings(), custom: null as Partial<Settings> | null };
+    press(st, 'voice');
+    expect(activeId(st.s)).toBe('voice');
+    st.s = { ...st.s, axisMode: 'hz' }; // 手で Hz に変えた
+    expect(activeId(st.s)).toBeNull();
+    st.s = { ...st.s, axisMode: 'en' }; // 音名なら言語が違っても同じ用途
+    expect(activeId(st.s)).toBe('voice');
   });
 
   it('覚える項目は、どのプリセットが触る項目も含む', () => {
