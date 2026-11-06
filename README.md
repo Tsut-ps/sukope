@@ -14,6 +14,11 @@
 - カーソルやタップで、周波数・音名・dB・時刻を表示。時間軸の目盛りつき
 - PNG 保存は、軸・目盛り・設定のキャプション・色の凡例つき
 - FFT サイズ、周波数の下限・上限、スクロール速度、配色(色覚配慮の Viridis が既定)、平滑化
+- 音階向けの解析: 低音ほど周波数を細かく・高音ほど時間を細かく見る(1オクターブごとに FFT サイズを切り替える方式。ふつうの FFT も選べる)
+- 音名ラベル: 鳴っている音の名前を、スペクトログラムに流して表示(PNG にも入る)
+- 倍音マーカー: クリック/タップした周波数を基音として、倍音(×2, ×3…)の線を引く
+- チューナー: いま鳴っている音の高さを、音名とずれ(セント)で表示。A4 の基準は 415〜450 Hz から選べる
+- 左右(L/R)を上下に分けて表示
 - 設定は自動で保存
 - ショートカット(`?` で一覧)、全画面、ヘッダー・フッターを隠す表示
 - スマホ対応(縦・横、取り込み中は画面が消えない)
@@ -30,6 +35,7 @@
 npm install
 npm run dev        # 開発サーバー
 npm run typecheck  # 型チェック
+npm test           # テスト(音程検出・設定の読み込み・解析の周波数表・履歴の作り直し)
 npm run build      # dist/ に出力
 ```
 
@@ -44,8 +50,9 @@ index.html
 src/
   main.ts                 起動
   App.svelte              全体(保存、Wake Lock、ドロップ)
-  components/             Header / PresetBar / SpectrogramView / Footer / LevelBar / HelpDialog
-  settings.svelte.ts      設定(検証と localStorage への保存)
+  components/             Header / PresetBar / SpectrogramView / Footer / LevelBar / HelpDialog / Tuner
+  settings-schema.ts      設定の型・既定値・検証(画面に依存しない)
+  settings.svelte.ts      設定(localStorage への保存)
   runtime.svelte.ts       実行時の状態(画面に出すもの)
   presets.ts              用途プリセット
   actions.ts              操作(ボタン・キー・ドロップで共通)
@@ -53,7 +60,10 @@ src/
   wakelock.ts             画面の自動消灯の防止
   engine/
     audio.ts              音声入力
-    history.ts            履歴(時刻つきリングバッファ。FFT のビン列をそのまま保存)
+    layout.ts             解析の周波数表(FFT / 音階向け)
+    history.ts            履歴(時刻つきリングバッファ。周波数表つきで保存し、解析を切り替えても残す)
+    pitch.ts              音程の検出(YIN 法)
+    labels.ts             音名ラベルの検出と記録
     viewport.ts           ズーム・移動・ライブへの復帰(計算)
     gesture.ts            ホイール・ドラッグ・ピンチ・タップ
     render.ts             表示範囲の更新、リサイズ、フレーム描画
