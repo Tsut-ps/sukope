@@ -63,10 +63,15 @@ export function initEngine(els: EngineElements): () => void {
 }
 
 /** 1 ピクセル行ごとの FFT ビン対応を作り直す(表示範囲・解析の並びが変わったとき) */
+/** 対応表の元にした周波数表。これと違う表になったら、対応表が古い */
+let rowsFreqs: ArrayLike<number> | null = null;
+const currentFreqs = (): Float32Array => (hist.bins ? hist.freqs : state.freqs);
+
 function rebuildRows(): void {
   if (!state.panelH) return;
   // 履歴があれば履歴の並びで描く(解析を切り替えた直後に履歴を作り直すまでの間も整合する)
-  setRows(buildRows(view, state.panelH, hist.bins ? hist.freqs : state.freqs));
+  rowsFreqs = currentFreqs();
+  setRows(buildRows(view, state.panelH, rowsFreqs));
 }
 
 const spanOf = (v: { log: boolean; fmin: number; fmax: number }): number =>
@@ -245,6 +250,12 @@ function frame(ts: number): void {
   state.last = ts;
 
   // 操作や設定変更による描き直しを、フレームごとに1回にまとめる
+  // 取り込みを始めた直後など、周波数表が変わったのに対応表が古いままのときは作り直す
+  // (空の表で作った対応表のままだと、全周波数が同じ 1 本のデータで塗られてしまう)
+  if (state.panelH && rowsFreqs !== currentFreqs()) {
+    rebuildRows();
+    state.dirtyFull = true;
+  }
   if (state.dirtyView) {
     state.dirtyView = false;
     updateView();
