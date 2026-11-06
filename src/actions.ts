@@ -6,6 +6,7 @@ import { imageToWav } from './engine/imagesynth';
 import { state, view } from './engine/state';
 import { ppsCss } from './engine/viewport';
 import { setStatus } from './runtime.svelte';
+import { closePopovers } from './popover';
 import { savePng } from './engine/png';
 import { panWindow, resetZoom, setPaused } from './engine/viewport';
 
@@ -22,7 +23,7 @@ export function toggleStart(): void {
 
 export function toggleImmersive(): void {
   rt.immersive = !rt.immersive;
-  if (rt.immersive) rt.optionsOpen = false;
+  if (rt.immersive) closePopovers();
 }
 
 export const fullscreenSupported = (): boolean => !!document.fullscreenEnabled;

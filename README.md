@@ -56,7 +56,8 @@ index.html
 src/
   main.ts                 起動
   App.svelte              全体(保存、Wake Lock、ドロップ)
-  components/             Header / PresetBar / SpectrogramView / Footer / LevelBar / HelpDialog / Tuner
+  components/             Header / PresetBar / Icon / SpectrogramView / Footer / LevelBar / HelpDialog / Tuner
+  popover.ts              設定・メニューの popover の位置決め
   settings-schema.ts      設定の型・既定値・検証(画面に依存しない)
   settings.svelte.ts      設定(localStorage への保存)
   runtime.svelte.ts       実行時の状態(画面に出すもの)

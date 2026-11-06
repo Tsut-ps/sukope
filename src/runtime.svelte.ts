@@ -58,8 +58,6 @@ export const rt = $state({
   immersive: false,
   fullscreen: false,
   helpOpen: false,
-  /** スマホ幅で詳細設定を開いている */
-  optionsOpen: false,
   /** 一度でも開始したか(最初の案内を消すため) */
   everStarted: false,
   /** アプリとして追加できる状態か(ブラウザが案内を出せるとき) */

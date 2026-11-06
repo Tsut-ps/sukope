@@ -5,8 +5,8 @@ body{height:100dvh;background:var(--bg);color:var(--text);font:13px/1.4 system-u
 #app-root{height:100%}
 #app{height:100%;display:flex;flex-direction:column}
 #app.immersive header,#app.immersive footer{display:none}
-header{background:var(--panel);border-bottom:1px solid var(--line);padding:8px 12px;display:flex;flex-direction:column;gap:6px}
-.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:8px 12px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
 .grp{display:flex;align-items:center;gap:6px}
 label{color:var(--muted);white-space:nowrap}
 label.chk{display:inline-flex;align-items:center;gap:4px;color:var(--text);cursor:pointer}
@@ -44,9 +44,10 @@ footer{background:var(--panel);border-top:1px solid var(--line);padding:6px 12px
 #playerBox audio{height:30px;max-width:340px}
 .spacer{flex:1}
 .grow{flex:1}
-@media (pointer:coarse){.only-kbd{display:none}}
+@media (pointer:coarse){
+.only-kbd{display:none}}
 button.icon{min-width:30px;padding:4px 0;border-radius:50%;font-weight:600}
-button.chip{border-radius:999px;padding:3px 14px}
+button.chip{border-radius:999px;padding:3px 14px;white-space:nowrap}
 button.chip.on{background:#2b3340;border-color:var(--accent);color:var(--accent);font-weight:600}
 .presets{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none}
 .presets::-webkit-scrollbar{display:none}
@@ -66,23 +67,52 @@ dd{margin:0}
 kbd{display:inline-block;min-width:1.8em;text-align:center;font:600 12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#222833;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 6px}
 dialog form{position:absolute;right:10px;top:10px;margin:0}
 .dlgBody{position:relative}
-/* ---------- レスポンシブ ---------- */
-.only-sm{display:none}
+/* ---------- ヘッダーの部品 ---------- */
+.grp.src{flex:0 1 auto;min-width:0}
+.grp.run{gap:6px}
+.fname{max-width:14em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+button.ibtn{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:34px;height:32px;padding:0 7px;color:var(--muted);position:relative}
+button.ibtn:hover{color:var(--text)}
+button.ibtn.on{background:#2b3340;border-color:var(--accent);color:var(--accent)}
+button.ibtn.wide{padding:0 10px;color:var(--text)}
+.tgls,.acts{display:flex;gap:4px;align-items:center}
+.tgls{padding-right:8px;margin-right:2px;border-right:1px solid var(--line)}
+/* popover(設定・その他) */
+.pop{position:fixed;inset:auto;top:var(--pt,48px);right:var(--pr,8px);left:auto;margin:0;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.6);max-height:calc(100dvh - var(--pt,48px) - 12px);overflow-y:auto}
+.pop.settings{width:min(360px,calc(100vw - 16px));padding:4px 14px 12px}
+.pop section{padding:6px 0 4px}
+.pop section+section{border-top:1px solid var(--line)}
+.pop h3{margin:6px 0 4px;font-size:12px;color:var(--muted);font-weight:600}
+.field{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:3px 0}
+.field select{flex:0 1 210px;min-width:0}
+.slider{display:flex;align-items:center;gap:6px;flex:0 1 210px}
+.slider input{flex:1;min-width:0}
+.pop.menu{display:none;min-width:220px}
+.pop.menu:popover-open{display:flex;flex-direction:column;gap:2px}
+.pop.menu button{display:flex;justify-content:space-between;align-items:center;gap:16px;border:0;background:transparent;text-align:left;padding:8px 10px;border-radius:6px}
+.pop.menu button:hover{background:#222833}
+.pop.menu hr{border:0;border-top:1px solid var(--line);margin:4px 0;width:100%}
+.pop.menu kbd{background:transparent;border-color:var(--line);color:var(--muted)}
 header{position:relative;padding-top:max(8px,env(safe-area-inset-top));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
 footer{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));padding-bottom:max(6px,env(safe-area-inset-bottom))}
 @media (max-width:760px),(max-height:520px) and (orientation:landscape){
-  .only-sm{display:inline-block}
-  header{gap:4px}
-  header .row{gap:6px 8px}
-  #source{flex:1;max-width:100%}
-  .grp:has(#device){flex:1 1 auto;min-width:0}
-  .grp:has(#device) select{flex:1;min-width:0;max-width:none}
-  #opts{display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 12px;max-height:60dvh;overflow-y:auto;box-shadow:0 10px 24px rgba(0,0,0,.55)}
-  header.open #opts{display:flex}
+  .bar{gap:6px 8px}
+  .grp.src{flex:1 1 100%}
+  #source{flex:1 1 0;min-width:0}
+  #device{flex:1 1 0;min-width:0;max-width:none}
   select,button,.btn{font-size:16px;padding:7px 10px}
-  select{max-width:100%}
+  button.ibtn{height:38px;min-width:38px;padding:0 8px}
+  .lbl{display:none}
+  .grow{display:none}
+  .tgls{margin-left:auto;padding-right:0;margin-right:0;border-right:0}
+  .presets{order:5;flex:1 1 230px;min-width:0}
+  .presetLabel{display:none}
+  .acts{order:6}
+  button.chip{padding:5px 8px;font-size:13px;white-space:nowrap}
+  .pop,.pop.settings{left:8px;right:8px;width:auto}
+  .pop.menu{left:auto;width:min(280px,calc(100vw - 16px))}
   main{grid-template-columns:52px 1fr;padding:6px max(6px,env(safe-area-inset-right)) 2px env(safe-area-inset-left)}
-  .presets{flex:1 1 100%}
   footer{gap:4px 12px}
   #lvl{flex:1 1 100%;width:100%}
   .spacer{display:none}
@@ -93,19 +123,17 @@ footer{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,e
 }
 /* 横向きのスマホ: 縦が低いので、ヘッダーとフッターを1行ずつに詰める */
 @media (max-height:520px) and (orientation:landscape){
-  header{padding-top:max(4px,env(safe-area-inset-top));padding-bottom:4px;flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px 10px}
-  header>.row:first-child{display:contents}
-  label[for=source],label[for=device]{display:none}
-  #source{flex:0 1 190px}
-  .grp:has(#device){flex:0 1 150px}
-  #device{max-width:150px}
-  select,button,.btn{font-size:14px;padding:4px 8px}
-  .presets{flex:0 1 auto}
+  header{padding-top:max(4px,env(safe-area-inset-top));padding-bottom:4px}
+  .grp.src{flex:0 1 340px}
   .presetLabel{display:none}
+  select,button,.btn{font-size:14px;padding:4px 8px}
+  button.ibtn{height:32px;min-width:32px}
+  .presets{order:0;flex:0 1 auto}
+  .acts,.tgls{order:0}
+  .tgls{margin-left:auto}
   footer{min-height:0;padding-top:2px;padding-bottom:max(2px,env(safe-area-inset-bottom));gap:2px 12px}
   #lvl{flex:0 1 300px;width:300px}
   #hint{font-size:11px;line-height:1.5;padding:6px}
-  #opts{max-height:70dvh}
 }
 
 /* チューナー */
