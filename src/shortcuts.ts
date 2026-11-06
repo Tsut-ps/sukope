@@ -20,7 +20,7 @@ import {
   toggleScale,
   toggleStart,
 } from './actions';
-import { applyPreset, PRESETS } from './presets';
+import { applyPreset, PRESETS } from './presets.svelte';
 
 export interface Shortcut {
   /** 画面に出すキー名 */
