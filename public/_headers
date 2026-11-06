@@ -3,3 +3,7 @@
   Permissions-Policy: microphone=(self), display-capture=(self), camera=(), geolocation=()
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache

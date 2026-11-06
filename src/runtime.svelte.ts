@@ -62,6 +62,8 @@ export const rt = $state({
   optionsOpen: false,
   /** 一度でも開始したか(最初の案内を消すため) */
   everStarted: false,
+  /** アプリとして追加できる状態か(ブラウザが案内を出せるとき) */
+  installable: false,
 });
 
 export function setStatus(text: string, err = false): void {
@@ -72,4 +74,5 @@ export function setStatus(text: string, err = false): void {
 /** 画面側が差し込む操作 */
 export const ui = {
   pickFile: () => {},
+  install: () => {},
 };

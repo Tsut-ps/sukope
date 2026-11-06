@@ -165,6 +165,9 @@
     </label>
     <button title="FFT・範囲・配色などを初期値に戻す(入力の選択は残します)" onclick={resetSettings}>初期化</button>
     <span class="grow"></span>
+    {#if rt.installable}
+      <button title="ホーム画面やアプリ一覧に追加して、単独のアプリとして開く" onclick={() => ui.install()}>アプリとして追加</button>
+    {/if}
     <button title="ヘッダーとフッターを隠す(H)" onclick={toggleImmersive}>表示に集中</button>
     {#if fullscreenSupported()}
       <button title="全画面(F)" onclick={toggleFullscreen}>{rt.fullscreen ? '全画面を終了' : '全画面'}</button>
