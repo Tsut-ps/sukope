@@ -2,6 +2,8 @@
 
 ブラウザで動く、リアルタイムのスペクトログラム(縦軸=周波数、横軸=時間)。
 
+<img width="1912" height="924" alt="image" src="https://github.com/user-attachments/assets/04da7c1c-863e-43fb-b7cb-e0e245306943" />
+
 ## 機能
 
 - 入力: マイク / ループバック入力デバイス / タブ・画面の音声共有 / 音声ファイル
