@@ -2,5 +2,7 @@
   // Worker のコードは持たず、dist/ の静的ファイルだけを配信する
   "name": "sukope",
   "compatibility_date": "2026-11-06",
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": { "directory": "./dist" }
 }
